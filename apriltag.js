@@ -1,6 +1,10 @@
 importScripts('apriltag_wasm.js');
 importScripts("https://unpkg.com/comlink/dist/umd/comlink.js");
 
+const BROWSER_DEMO_MAX_DETECTIONS = 32;
+const BROWSER_DEMO_RETURN_POSE = 1;
+const BROWSER_DEMO_RETURN_SOLUTIONS = 0;
+
 /**
  * Wrapper around apriltag_wasm: loads the WASM module and exposes detector calls.
  * Default family is tag36h11. Use set_tag_family for ArUco dictionaries.
@@ -18,9 +22,9 @@ class Apriltag {
           quad_sigma: 0.0,
           nthreads: 1,
           refine_edges: 1,
-          max_detections: 0,
-          return_pose: 1,
-          return_solutions: 1
+          max_detections: BROWSER_DEMO_MAX_DETECTIONS,
+          return_pose: BROWSER_DEMO_RETURN_POSE,
+          return_solutions: BROWSER_DEMO_RETURN_SOLUTIONS
         };
 
         let _this = this;
