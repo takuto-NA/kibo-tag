@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+
+jobs:
+  test-and-wasm-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build Docker image
+        run: docker build -t kibo-tag-dev .
+
+      - name: Run tests
+        run: docker run --rm -v "${{ github.workspace }}:/workspace" -w /workspace kibo-tag-dev make tests
+
+      - name: Build WASM
+        run: docker run --rm -v "${{ github.workspace }}:/workspace" -w /workspace kibo-tag-dev make apriltag_wasm.js

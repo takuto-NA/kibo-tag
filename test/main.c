@@ -16,6 +16,18 @@ int main(void) {
             when_detect_called_on_empty_image_returns_empty_json_array, NULL, atagjs_test_group_teardown),
         cmocka_unit_test_setup_teardown(
             when_set_tag_size_given_invalid_tag_id_returns_error, NULL, atagjs_test_group_teardown),
+        cmocka_unit_test_setup_teardown(
+            when_set_tag_size_given_negative_tag_id_returns_error, NULL, atagjs_test_group_teardown),
+        cmocka_unit_test_setup_teardown(
+            when_set_detector_options_called_before_init_returns_error, NULL, atagjs_test_group_teardown),
+        cmocka_unit_test_setup_teardown(
+            when_set_img_buffer_given_invalid_dimensions_returns_null, NULL, atagjs_test_group_teardown),
+        cmocka_unit_test_setup_teardown(
+            when_detect_called_after_init_without_image_buffer_returns_error_json, NULL, atagjs_test_group_teardown),
+        cmocka_unit_test_setup_teardown(
+            when_destroy_called_without_init_returns_success, NULL, atagjs_test_group_teardown),
+        cmocka_unit_test_setup_teardown(
+            when_destroy_called_twice_returns_success, NULL, atagjs_test_group_teardown),
     };
 
     const struct CMUnitTest str_json_tests[] = {

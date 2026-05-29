@@ -78,7 +78,7 @@ size_t str_json_concat ( t_str_json *str_json_dest, const char *source_c_str );
  * @param format a format string
  * @param ... additional arguments
  *
- * @return The number of characters that would have been written if str_json_dest had been sufficiently large, not counting the terminating null character.
+ * @return The length in bytes of the string written into str_json_dest (excluding the terminating null), after truncation to fit allocated size.
  */
 size_t str_json_printf ( t_str_json *str_json_dest, const char *format, ... );
 

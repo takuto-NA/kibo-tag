@@ -24,6 +24,14 @@ This is the main WASM apriltag detector source, with additional tests and a [sta
 
 Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) only. You do not need WSL toolchains, MSYS2, or a local `make` install for tests and WASM builds.
 
+Clone with submodules (required for apriltag sources):
+
+```bash
+git clone --recurse-submodules <repository-url>
+# or after clone:
+git submodule update --init --recursive
+```
+
 From the repository root (bash or PowerShell):
 
 ```bash
@@ -79,7 +87,7 @@ let apriltag = Apriltag(() => {
 apriltag.detect(grayscaleImg, imgWidth, imgHeight)
 ```
 
-> ```detect()``` will return an array of JSON objects with information about the tags detected.
+> ```detect()``` returns an array of JSON objects on success. On failure (invalid dimensions, detector not ready, or C-side error JSON) it throws an ```Error``` with a message string.
 >
 > Example detection:
 >

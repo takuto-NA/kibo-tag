@@ -1,28 +1,56 @@
 name: Build and Deploy
+
 on:
   push:
     branches:
       - master
+      - main
+
 jobs:
-  build-and-deploy:
+  test-and-wasm-build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout 🛎️
-        uses: actions/checkout@v2 # If you're using actions/checkout@v2 you must set persist-credentials to false in most cases for the deployment to work correctly.
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
+          submodules: recursive
+
+      - name: Build Docker image
+        run: docker build -t kibo-tag-dev .
+
+      - name: Run tests
+        run: docker run --rm -v "${{ github.workspace }}:/workspace" -w /workspace kibo-tag-dev make tests
+
+      - name: Build WASM
+        run: docker run --rm -v "${{ github.workspace }}:/workspace" -w /workspace kibo-tag-dev make apriltag_wasm.js
+
+  build-and-deploy:
+    needs: test-and-wasm-build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
           persist-credentials: false
 
-      - name: Deploy html 🚀
+      - name: Build Docker image
+        run: docker build -t kibo-tag-dev .
+
+      - name: Build WASM for Pages
+        run: docker run --rm -v "${{ github.workspace }}:/workspace" -w /workspace kibo-tag-dev make apriltag_wasm.js
+
+      - name: Deploy html
         uses: JamesIves/github-pages-deploy-action@4.1.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: gh-pages # The branch the action should deploy to.
-          folder: html # The folder the action should deploy.
+          branch: gh-pages
+          folder: html
 
-      - name: Deploy docs 🚀
+      - name: Deploy docs
         uses: JamesIves/github-pages-deploy-action@4.1.1
         with:
           token: ${{ secrets.TOKEN }}
-          branch: gh-pages # The branch the action should deploy to.
-          folder: docs/html # The folder the action should deploy.
-          target-folder: docs # The folder the action should deploy to.
+          branch: gh-pages
+          folder: docs/html
+          target-folder: docs
