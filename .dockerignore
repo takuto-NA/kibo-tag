@@ -1,0 +1,20 @@
+# Keep Docker build context small; sources are bind-mounted at run time.
+
+.git
+.github
+
+bin/
+log/
+
+*.o
+*.a
+*.so
+*.dll
+*.exe
+*.out
+*.app
+
+html/apriltag_wasm.js
+html/apriltag_wasm.wasm
+
+docs/html/

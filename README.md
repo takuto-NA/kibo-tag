@@ -20,6 +20,23 @@ This is the main WASM apriltag detector source, with additional tests and a [sta
 
 ## Quick Start
 
+### Docker (recommended on Windows)
+
+Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) only. You do not need WSL toolchains, MSYS2, or a local `make` install for tests and WASM builds.
+
+From the repository root (bash or PowerShell):
+
+```bash
+docker build -t kibo-tag-dev .
+docker run --rm -v "${PWD}:/workspace" -w /workspace kibo-tag-dev make tests
+docker run --rm -v "${PWD}:/workspace" -w /workspace kibo-tag-dev make apriltag_wasm.js
+docker run --rm -v "${PWD}:/workspace" -w /workspace kibo-tag-dev make clean   # optional
+```
+
+The repository is bind-mounted; test binaries land in `bin/`, WASM artifacts in `html/`. The [Dockerfile](Dockerfile) pins a Linux toolchain (gcc, cmocka, Emscripten) and does not copy source into the image.
+
+### Native Linux
+
 Install make, gcc, [emscripten](https://emscripten.org/docs/getting_started/downloads.html), [cmocka](https://cmocka.org/), [valgrind](https://www.valgrind.org/downloads/?src=www.discoversdk.com), and [doxygen](https://www.doxygen.nl/manual/install.html).  Cmocka and valgrind are only necessary to run the tests and memory checks. Doxygen is needed if you want to build the documentation.
 
 To compile and run tests, use make:
@@ -30,7 +47,7 @@ The Makefile has the following targets:
 
 - **all**: Builds the example binary (atagjs_example) and the WASM files (apriltag_wasm.js).
 - **atagjs_example** (default): Creates a binary (at bin/atagjs_example) of an example program that get the detector output by giving it image files. The image files are indicated as arguments to the program (requires gcc).
-- **apriltag_wasm.js**: Builds the WASM detector (requires emscripten). The resulting files (**apriltag_wasm.js** and **apriltag_wasm.wasm**) are placed under the [html(html) folder so they are run with the javascript example there.
+- **apriltag_wasm.js**: Builds the WASM detector (requires emscripten). The resulting files (**apriltag_wasm.js** and **apriltag_wasm.wasm**) are placed under the [html](html) folder so they are run with the javascript example there.
 - **tests**: Builds the cmocka test runner as executes it (requires cmocka).
 - **valgrind**: Runs the test program under valgrind for several input images in [test/tag-imgs](test/tag-imgs) (requires valgrind).
 - **clean**: Cleans non-source files.
