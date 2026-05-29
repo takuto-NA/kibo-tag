@@ -23,6 +23,12 @@ static const int TEST_TAG36H11_TAG_ID = 0;
 static const int TEST_ARUCO_REPRESENTATIVE_TAG_IDS[] = {0, 1, 23, 99};
 static const int TEST_ARUCO_REPRESENTATIVE_TAG_ID_COUNT = 4;
 static const float TEST_DETECTOR_QUAD_DECIMATE_FOR_SYNTHETIC_TAGS = 1.0f;
+static const int TEST_NOISY_FRAME_WIDTH_PIXELS = 320;
+static const int TEST_NOISY_FRAME_HEIGHT_PIXELS = 240;
+static const int TEST_NOISY_DETECT_REPEAT_COUNT = 32;
+static const float TEST_BROWSER_DEMO_QUAD_DECIMATE = 2.0f;
+static const int TEST_STRESS_PROFILE_MAX_DETECTIONS = 0;
+static const int TEST_STRESS_PROFILE_RETURN_SOLUTIONS = 1;
 
 static const char EXPECTED_ERROR_NOT_INITIALIZED[] = "Detector not initialized";
 static const char EXPECTED_EMPTY_DETECTIONS_JSON[] = "[ ]";
@@ -93,6 +99,49 @@ static void assert_detection_json_does_not_contain_tag_id(t_str_json *detection_
     assert_non_null(detection_json->str);
     snprintf(unexpected_id_fragment, sizeof(unexpected_id_fragment), "\"id\":%d", unexpected_tag_id);
     assert_null(strstr(detection_json->str, unexpected_id_fragment));
+}
+
+static void assert_detect_returns_safe_json(t_str_json *detection_json)
+{
+    assert_non_null(detection_json);
+    assert_non_null(detection_json->str);
+    assert_true(detection_json->len > 0);
+    assert_true(detection_json->str[0] == '[' || detection_json->str[0] == '{');
+    assert_null(strstr(detection_json->str, EXPECTED_ERROR_NOT_INITIALIZED));
+}
+
+static void configure_detector_for_pose_stress_profile(void)
+{
+    int set_options_result = atagjs_set_detector_options(
+        TEST_BROWSER_DEMO_QUAD_DECIMATE,
+        0.0f,
+        1,
+        1,
+        TEST_STRESS_PROFILE_MAX_DETECTIONS,
+        1,
+        TEST_STRESS_PROFILE_RETURN_SOLUTIONS);
+    assert_int_equal(set_options_result, 0);
+}
+
+static void fill_image_buffer_with_low_confidence_noise(
+    uint8_t *image_buffer,
+    int width,
+    int height,
+    int stride,
+    unsigned int noise_seed)
+{
+    for (int row = 0; row < height; row++) {
+        uint8_t *row_pointer = image_buffer + (row * stride);
+        for (int column = 0; column < width; column++) {
+            unsigned int pixel_index = (unsigned int)row * (unsigned int)width + (unsigned int)column;
+            unsigned int mixed_value = noise_seed + (pixel_index * 1103515245U);
+            uint8_t gray_value = (uint8_t)((mixed_value >> 16) & 0xFF);
+            if ((row / 8 + column / 8) % 2 == 0) {
+                gray_value = (uint8_t)(255 - gray_value);
+            }
+            row_pointer[column] = gray_value;
+        }
+    }
 }
 
 void when_detect_called_before_init_returns_error_json(void **state)
@@ -403,4 +452,30 @@ void when_tag_size_is_isolated_per_family(void **state)
     t_str_json *aruco_detection_json_after_switch_back = atagjs_detect();
     assert_true(
         strstr(aruco_detection_json_after_switch_back->str, expected_aruco_size_fragment) != NULL);
+}
+
+void when_detecting_noisy_aruco_frames_with_pose_enabled_returns_safe_json(void **state)
+{
+    uint8_t *image_buffer = NULL;
+    (void)state;
+
+    assert_int_equal(atagjs_init(), 0);
+    configure_detector_for_pose_stress_profile();
+    assert_int_equal(atagjs_set_tag_family("DICT_4X4_100", 0), 0);
+
+    image_buffer = atagjs_set_img_buffer(
+        TEST_NOISY_FRAME_WIDTH_PIXELS,
+        TEST_NOISY_FRAME_HEIGHT_PIXELS,
+        TEST_NOISY_FRAME_WIDTH_PIXELS);
+    assert_non_null(image_buffer);
+
+    for (int detect_index = 0; detect_index < TEST_NOISY_DETECT_REPEAT_COUNT; detect_index++) {
+        fill_image_buffer_with_low_confidence_noise(
+            image_buffer,
+            TEST_NOISY_FRAME_WIDTH_PIXELS,
+            TEST_NOISY_FRAME_HEIGHT_PIXELS,
+            TEST_NOISY_FRAME_WIDTH_PIXELS,
+            (unsigned int)detect_index);
+        assert_detect_returns_safe_json(atagjs_detect());
+    }
 }

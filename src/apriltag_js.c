@@ -71,6 +71,27 @@ static void tag_family_destroy(apriltag_family_t *tag_family, tag_family_kind_t 
 static int tag_family_bits_corrected_is_valid(int bits_corrected);
 static void reset_all_tag_size_tables_to_default(void);
 static int tag_id_is_valid_for_active_family(int tag_id);
+static int apriltag_pose_has_valid_matrices(const apriltag_pose_t *pose);
+static void apriltag_pose_clear(apriltag_pose_t *pose);
+static void apriltag_pose_destroy_matrices(apriltag_pose_t *pose);
+static void append_alternative_solution_json(
+    char *alternative_solution_json,
+    int alternative_solution_json_size,
+    const apriltag_pose_t *alternative_pose,
+    double alternative_error,
+    int unique_solution);
+static void format_detection_point_json(
+    char *detection_fragment,
+    const apriltag_detection_t *detection,
+    const char *family_name);
+static void format_detection_point_pose_json(
+    char *detection_fragment,
+    const apriltag_detection_t *detection,
+    const char *family_name,
+    double tag_size_meters,
+    const apriltag_pose_t *pose,
+    double pose_error,
+    const char *alternative_solution_json);
 
 const char fmt_error[] = "{ \"result\": \"%s\" }";
 const char fmt_det_point[] =
@@ -152,6 +173,150 @@ static int tag_id_is_valid_for_active_family(int tag_id)
     }
 
     return tag_id < MAX_TAG_ID;
+}
+
+static int apriltag_pose_has_valid_matrices(const apriltag_pose_t *pose)
+{
+    if (pose == NULL) {
+        return 0;
+    }
+    if (pose->R == NULL || pose->t == NULL) {
+        return 0;
+    }
+    return 1;
+}
+
+static void apriltag_pose_clear(apriltag_pose_t *pose)
+{
+    if (pose == NULL) {
+        return;
+    }
+    pose->R = NULL;
+    pose->t = NULL;
+}
+
+static void apriltag_pose_destroy_matrices(apriltag_pose_t *pose)
+{
+    if (pose == NULL) {
+        return;
+    }
+    if (pose->R != NULL) {
+        matd_destroy(pose->R);
+        pose->R = NULL;
+    }
+    if (pose->t != NULL) {
+        matd_destroy(pose->t);
+        pose->t = NULL;
+    }
+}
+
+static void append_alternative_solution_json(
+    char *alternative_solution_json,
+    int alternative_solution_json_size,
+    const apriltag_pose_t *alternative_pose,
+    double alternative_error,
+    int unique_solution)
+{
+    if (alternative_solution_json == NULL) {
+        return;
+    }
+    if (alternative_solution_json_size <= MIN_POSE_ALTERNATIVE_SOLUTION_JSON_BYTES) {
+        return;
+    }
+    if (!apriltag_pose_has_valid_matrices(alternative_pose)) {
+        return;
+    }
+
+    snprintf(
+        alternative_solution_json,
+        alternative_solution_json_size,
+        ", \"asol\": {\"R\": [[%f,%f,%f],[%f,%f,%f],[%f,%f,%f]], \"t\": [%f,%f,%f], \"e\": %f, \"uniquesol\": %s }",
+        matd_get(alternative_pose->R, 0, 0),
+        matd_get(alternative_pose->R, 1, 0),
+        matd_get(alternative_pose->R, 2, 0),
+        matd_get(alternative_pose->R, 0, 1),
+        matd_get(alternative_pose->R, 1, 1),
+        matd_get(alternative_pose->R, 2, 1),
+        matd_get(alternative_pose->R, 0, 2),
+        matd_get(alternative_pose->R, 1, 2),
+        matd_get(alternative_pose->R, 2, 2),
+        matd_get(alternative_pose->t, 0, 0),
+        matd_get(alternative_pose->t, 1, 0),
+        matd_get(alternative_pose->t, 2, 0),
+        alternative_error,
+        unique_solution ? "true" : "false");
+}
+
+static void format_detection_point_json(
+    char *detection_fragment,
+    const apriltag_detection_t *detection,
+    const char *family_name)
+{
+    snprintf(
+        detection_fragment,
+        STR_DET_LEN,
+        fmt_det_point,
+        detection->id,
+        family_name,
+        detection->hamming,
+        detection->decision_margin,
+        detection->p[0][0],
+        detection->p[0][1],
+        detection->p[1][0],
+        detection->p[1][1],
+        detection->p[2][0],
+        detection->p[2][1],
+        detection->p[3][0],
+        detection->p[3][1],
+        detection->c[0],
+        detection->c[1]);
+}
+
+static void format_detection_point_pose_json(
+    char *detection_fragment,
+    const apriltag_detection_t *detection,
+    const char *family_name,
+    double tag_size_meters,
+    const apriltag_pose_t *pose,
+    double pose_error,
+    const char *alternative_solution_json)
+{
+    const char *alternative_solution_suffix =
+        alternative_solution_json != NULL ? alternative_solution_json : "";
+
+    snprintf(
+        detection_fragment,
+        STR_DET_LEN,
+        fmt_det_point_pose,
+        detection->id,
+        family_name,
+        detection->hamming,
+        detection->decision_margin,
+        detection->p[0][0],
+        detection->p[0][1],
+        detection->p[1][0],
+        detection->p[1][1],
+        detection->p[2][0],
+        detection->p[2][1],
+        detection->p[3][0],
+        detection->p[3][1],
+        detection->c[0],
+        detection->c[1],
+        tag_size_meters,
+        matd_get(pose->R, 0, 0),
+        matd_get(pose->R, 1, 0),
+        matd_get(pose->R, 2, 0),
+        matd_get(pose->R, 0, 1),
+        matd_get(pose->R, 1, 1),
+        matd_get(pose->R, 2, 1),
+        matd_get(pose->R, 0, 2),
+        matd_get(pose->R, 1, 2),
+        matd_get(pose->R, 2, 2),
+        matd_get(pose->t, 0, 0),
+        matd_get(pose->t, 1, 0),
+        matd_get(pose->t, 2, 0),
+        pose_error,
+        alternative_solution_suffix);
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -391,27 +556,10 @@ t_str_json *atagjs_detect()
         }
 
         if (g_return_pose == 0) {
-            snprintf(
-                detection_fragment,
-                STR_DET_LEN,
-                fmt_det_point,
-                detection->id,
-                family_name,
-                detection->hamming,
-                detection->decision_margin,
-                detection->p[0][0],
-                detection->p[0][1],
-                detection->p[1][0],
-                detection->p[1][1],
-                detection->p[2][0],
-                detection->p[2][1],
-                detection->p[3][0],
-                detection->p[3][1],
-                detection->c[0],
-                detection->c[1]);
+            format_detection_point_json(detection_fragment, detection, family_name);
         } else {
             double tag_size_meters = tag_size_meters_from_id(detection->id);
-            apriltag_pose_t pose;
+            apriltag_pose_t pose = { .R = NULL, .t = NULL };
             double pose_error = 0.0;
             char *alternative_solution_json = NULL;
             int alternative_solution_json_size = 0;
@@ -433,42 +581,20 @@ t_str_json *atagjs_detect()
                 alternative_solution_json,
                 alternative_solution_json_size);
 
-            snprintf(
-                detection_fragment,
-                STR_DET_LEN,
-                fmt_det_point_pose,
-                detection->id,
-                family_name,
-                detection->hamming,
-                detection->decision_margin,
-                detection->p[0][0],
-                detection->p[0][1],
-                detection->p[1][0],
-                detection->p[1][1],
-                detection->p[2][0],
-                detection->p[2][1],
-                detection->p[3][0],
-                detection->p[3][1],
-                detection->c[0],
-                detection->c[1],
-                tag_size_meters,
-                matd_get(pose.R, 0, 0),
-                matd_get(pose.R, 1, 0),
-                matd_get(pose.R, 2, 0),
-                matd_get(pose.R, 0, 1),
-                matd_get(pose.R, 1, 1),
-                matd_get(pose.R, 2, 1),
-                matd_get(pose.R, 0, 2),
-                matd_get(pose.R, 1, 2),
-                matd_get(pose.R, 2, 2),
-                matd_get(pose.t, 0, 0),
-                matd_get(pose.t, 1, 0),
-                matd_get(pose.t, 2, 0),
-                pose_error,
-                alternative_solution_json != NULL ? alternative_solution_json : "");
+            if (apriltag_pose_has_valid_matrices(&pose)) {
+                format_detection_point_pose_json(
+                    detection_fragment,
+                    detection,
+                    family_name,
+                    tag_size_meters,
+                    &pose,
+                    pose_error,
+                    alternative_solution_json);
+                apriltag_pose_destroy_matrices(&pose);
+            } else {
+                format_detection_point_json(detection_fragment, detection, family_name);
+            }
 
-            matd_destroy(pose.R);
-            matd_destroy(pose.t);
             if (alternative_solution_json != NULL) {
                 free(alternative_solution_json);
             }
@@ -493,8 +619,12 @@ static double estimate_tag_pose_with_solution(
 {
     double error_first = 0.0;
     double error_second = 0.0;
-    apriltag_pose_t pose_first;
-    apriltag_pose_t pose_second;
+    apriltag_pose_t pose_first = { .R = NULL, .t = NULL };
+    apriltag_pose_t pose_second = { .R = NULL, .t = NULL };
+    int first_pose_valid = 0;
+    int second_pose_valid = 0;
+
+    apriltag_pose_clear(pose);
 
     estimate_tag_pose_orthogonal_iteration(
         detection_info,
@@ -504,83 +634,56 @@ static double estimate_tag_pose_with_solution(
         &pose_second,
         50);
 
-    if (error_first <= error_second) {
+    first_pose_valid = apriltag_pose_has_valid_matrices(&pose_first);
+    second_pose_valid = apriltag_pose_has_valid_matrices(&pose_second);
+
+    if (first_pose_valid && (!second_pose_valid || error_first <= error_second)) {
         pose->R = pose_first.R;
         pose->t = pose_first.t;
-        if (alternative_solution_json != NULL
-            && alternative_solution_json_size > MIN_POSE_ALTERNATIVE_SOLUTION_JSON_BYTES) {
-            if (pose_second.R != NULL && pose_second.t != NULL) {
-                snprintf(
-                    alternative_solution_json,
-                    alternative_solution_json_size,
-                    ", \"asol\": {\"R\": [[%f,%f,%f],[%f,%f,%f],[%f,%f,%f]], \"t\": [%f,%f,%f], \"e\": %f, \"uniquesol\": true }",
-                    matd_get(pose_second.R, 0, 0),
-                    matd_get(pose_second.R, 1, 0),
-                    matd_get(pose_second.R, 2, 0),
-                    matd_get(pose_second.R, 0, 1),
-                    matd_get(pose_second.R, 1, 1),
-                    matd_get(pose_second.R, 2, 1),
-                    matd_get(pose_second.R, 0, 2),
-                    matd_get(pose_second.R, 1, 2),
-                    matd_get(pose_second.R, 2, 2),
-                    matd_get(pose_second.t, 0, 0),
-                    matd_get(pose_second.t, 1, 0),
-                    matd_get(pose_second.t, 2, 0),
-                    error_second);
-            } else {
-                snprintf(
-                    alternative_solution_json,
-                    alternative_solution_json_size,
-                    ", \"asol\": {\"R\": [[%f,%f,%f],[%f,%f,%f],[%f,%f,%f]], \"t\": [%f,%f,%f], \"e\": %f, \"uniquesol\": false }",
-                    matd_get(pose_first.R, 0, 0),
-                    matd_get(pose_first.R, 1, 0),
-                    matd_get(pose_first.R, 2, 0),
-                    matd_get(pose_first.R, 0, 1),
-                    matd_get(pose_first.R, 1, 1),
-                    matd_get(pose_first.R, 2, 1),
-                    matd_get(pose_first.R, 0, 2),
-                    matd_get(pose_first.R, 1, 2),
-                    matd_get(pose_first.R, 2, 2),
-                    matd_get(pose_first.t, 0, 0),
-                    matd_get(pose_first.t, 1, 0),
-                    matd_get(pose_first.t, 2, 0),
-                    error_first);
-            }
+        if (second_pose_valid) {
+            append_alternative_solution_json(
+                alternative_solution_json,
+                alternative_solution_json_size,
+                &pose_second,
+                error_second,
+                1);
+        } else {
+            append_alternative_solution_json(
+                alternative_solution_json,
+                alternative_solution_json_size,
+                &pose_first,
+                error_first,
+                0);
         }
-        if (pose_second.R != NULL) {
-            matd_destroy(pose_second.R);
-        }
-        if (pose_second.t != NULL) {
-            matd_destroy(pose_second.t);
-        }
+        apriltag_pose_destroy_matrices(&pose_second);
         return error_first;
     }
 
-    pose->R = pose_second.R;
-    pose->t = pose_second.t;
-    if (alternative_solution_json != NULL
-        && alternative_solution_json_size > MIN_POSE_ALTERNATIVE_SOLUTION_JSON_BYTES) {
-        snprintf(
-            alternative_solution_json,
-            alternative_solution_json_size,
-            ", \"asol\": {\"R\": [[%f,%f,%f],[%f,%f,%f],[%f,%f,%f]], \"t\": [%f,%f,%f], \"e\": %f, \"uniquesol\": true }",
-            matd_get(pose_first.R, 0, 0),
-            matd_get(pose_first.R, 1, 0),
-            matd_get(pose_first.R, 2, 0),
-            matd_get(pose_first.R, 0, 1),
-            matd_get(pose_first.R, 1, 1),
-            matd_get(pose_first.R, 2, 1),
-            matd_get(pose_first.R, 0, 2),
-            matd_get(pose_first.R, 1, 2),
-            matd_get(pose_first.R, 2, 2),
-            matd_get(pose_first.t, 0, 0),
-            matd_get(pose_first.t, 1, 0),
-            matd_get(pose_first.t, 2, 0),
-            error_first);
+    if (second_pose_valid) {
+        pose->R = pose_second.R;
+        pose->t = pose_second.t;
+        if (first_pose_valid) {
+            append_alternative_solution_json(
+                alternative_solution_json,
+                alternative_solution_json_size,
+                &pose_first,
+                error_first,
+                1);
+        }
+        apriltag_pose_destroy_matrices(&pose_first);
+        return error_second;
     }
-    matd_destroy(pose_first.R);
-    matd_destroy(pose_first.t);
-    return error_second;
+
+    if (first_pose_valid) {
+        pose->R = pose_first.R;
+        pose->t = pose_first.t;
+        apriltag_pose_destroy_matrices(&pose_second);
+        return error_first;
+    }
+
+    apriltag_pose_destroy_matrices(&pose_first);
+    apriltag_pose_destroy_matrices(&pose_second);
+    return error_first;
 }
 
 static double tag_size_meters_from_id(int tag_id)

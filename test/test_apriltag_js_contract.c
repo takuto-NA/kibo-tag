@@ -41,6 +41,19 @@ static char *read_entire_file(const char *file_path, size_t *out_byte_count)
     return file_buffer;
 }
 
+void when_browser_wrapper_uses_conservative_demo_detector_options(void **state)
+{
+    size_t source_byte_count = 0;
+    char *source_text = read_entire_file(APRILTAG_JS_SOURCE_PATH, &source_byte_count);
+
+    (void)state;
+    assert_non_null(source_text);
+    assert_true(source_byte_count > 0);
+    assert_non_null(strstr(source_text, "BROWSER_DEMO_MAX_DETECTIONS"));
+    assert_non_null(strstr(source_text, "BROWSER_DEMO_RETURN_SOLUTIONS = 0"));
+    free(source_text);
+}
+
 void when_apriltag_js_exposes_set_tag_family_wrapper(void **state)
 {
     size_t source_byte_count = 0;
