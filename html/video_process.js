@@ -364,6 +364,7 @@ async function process_frame() {
     detections = filterDetectionsByDecisionMargin(rawDetections);
   } catch (detectionError) {
     console.log(detectionError);
+    detections = [];
     window.requestAnimationFrame(process_frame);
     return;
   }

@@ -20,5 +20,6 @@ void when_set_tag_family_called_before_init_returns_error(void **state);
 void when_set_tag_family_given_invalid_bits_corrected_returns_error(void **state);
 void when_set_tag_family_dict_4x4_100_detects_representative_aruco_ids(void **state);
 void when_tag_size_is_isolated_per_family(void **state);
+void when_detecting_noisy_aruco_frames_with_pose_enabled_returns_safe_json(void **state);
 
 #endif

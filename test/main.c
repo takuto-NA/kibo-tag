@@ -45,9 +45,14 @@ int main(void) {
             when_set_tag_family_dict_4x4_100_detects_representative_aruco_ids, NULL, atagjs_test_group_teardown),
         cmocka_unit_test_setup_teardown(
             when_tag_size_is_isolated_per_family, NULL, atagjs_test_group_teardown),
+        cmocka_unit_test_setup_teardown(
+            when_detecting_noisy_aruco_frames_with_pose_enabled_returns_safe_json,
+            NULL,
+            atagjs_test_group_teardown),
     };
 
     const struct CMUnitTest apriltag_js_contract_tests[] = {
+        cmocka_unit_test(when_browser_wrapper_uses_conservative_demo_detector_options),
         cmocka_unit_test(when_apriltag_js_exposes_set_tag_family_wrapper),
         cmocka_unit_test(when_camera_demo_exposes_aruco_family_configuration),
         cmocka_unit_test(when_user_leaves_demo_page_camera_tracks_are_stopped),
