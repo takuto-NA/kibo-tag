@@ -3,7 +3,7 @@ importScripts("https://unpkg.com/comlink/dist/umd/comlink.js");
 
 /**
  * Wrapper around apriltag_wasm: loads the WASM module and exposes detector calls.
- * Uses the tag36h11 family. Call set_tag_size for known tag sizes (default 0.15 m).
+ * Default family is tag36h11. Use set_tag_family for ArUco dictionaries.
  */
 class Apriltag {
 
@@ -36,6 +36,7 @@ class Apriltag {
         this._Module = Module;
         this._init = Module.cwrap('atagjs_init', 'number', []);
         this._destroy = Module.cwrap('atagjs_destroy', 'number', []);
+        this._set_tag_family = Module.cwrap('atagjs_set_tag_family', 'number', ['string', 'number']);
         this._set_detector_options = Module.cwrap(
             'atagjs_set_detector_options',
             'number',
@@ -105,6 +106,13 @@ class Apriltag {
         }
 
         return detections;
+    }
+
+    set_tag_family(familyName, bitsCorrected = 1) {
+        const set_family_result = this._set_tag_family(familyName, bitsCorrected);
+        if (set_family_result !== 0) {
+            throw new Error('Unsupported tag family or invalid bitsCorrected: ' + familyName);
+        }
     }
 
     set_camera_info(fx, fy, cx, cy) {
