@@ -82,6 +82,9 @@ const char fmt_det_point_pose[] = "{\"id\":%d, \"corners\": [{\"x\":%.2f,\"y\":%
 EMSCRIPTEN_KEEPALIVE
 int atagjs_init()
 {
+    if (g_td != NULL || g_tf != NULL) {
+        return -1;
+    }
     g_tf = tag36h11_create();
     if (g_tf == NULL)
     {
@@ -92,6 +95,8 @@ int atagjs_init()
     if (g_td == NULL)
     {
         printf("Error initializing detector.");
+        tag36h11_destroy(g_tf);
+        g_tf = NULL;
         return -1;
     }
     apriltag_detector_add_family_bits(g_td, g_tf, 1);
@@ -111,10 +116,18 @@ int atagjs_init()
 EMSCRIPTEN_KEEPALIVE
 int atagjs_destroy()
 {
-    apriltag_detector_destroy(g_td);
-    tag36h11_destroy(g_tf);
-    if (g_img_buf != NULL)
+    if (g_td != NULL) {
+        apriltag_detector_destroy(g_td);
+        g_td = NULL;
+    }
+    if (g_tf != NULL) {
+        tag36h11_destroy(g_tf);
+        g_tf = NULL;
+    }
+    if (g_img_buf != NULL) {
         free(g_img_buf);
+        g_img_buf = NULL;
+    }
 
     str_json_destroy(&g_det_json);
 
