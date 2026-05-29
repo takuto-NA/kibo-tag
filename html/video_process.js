@@ -4,17 +4,37 @@ import * as Base64 from "./base64.js";
 
 const DEFAULT_TAG_FAMILY_NAME = 'tag36h11';
 const ARUCO_4X4_100_FAMILY_NAME = 'DICT_4X4_100';
-const DEFAULT_BITS_CORRECTED = 1;
+const TAG36H11_BITS_CORRECTED = 1;
+const ARUCO_4X4_100_BITS_CORRECTED = 0;
 const DEFAULT_TAG_SIZE_METERS = 0.15;
+const TAG36H11_MINIMUM_DECISION_MARGIN = 0;
+const ARUCO_4X4_100_MINIMUM_DECISION_MARGIN = 50;
 const MIN_BITS_CORRECTED = 0;
 const MAX_BITS_CORRECTED = 2;
 const MIN_TAG_SIZE_METERS = 0.01;
+const MIN_DECISION_MARGIN = 0;
 const DETECTOR_FAMILY_SELECT_ID = 'detector_family';
 const DETECTOR_BITS_CORRECTED_SELECT_ID = 'detector_bits_corrected';
 const DETECTOR_TAG_SIZE_INPUT_ID = 'detector_tag_size_meters';
+const DETECTOR_MIN_DECISION_MARGIN_INPUT_ID = 'detector_min_decision_margin';
 const DETECTOR_STATUS_ID = 'detector_status';
 const TAG36H11_DEMO_TAG_IDS = [5];
 const ARUCO_4X4_100_TAG_COUNT = 100;
+const ARUCO_4X4_100_TAG_IDS = Array.from({ length: ARUCO_4X4_100_TAG_COUNT }, (_, tagId) => tagId);
+const DETECTOR_FAMILY_SETTINGS = {
+  [DEFAULT_TAG_FAMILY_NAME]: {
+    familyName: DEFAULT_TAG_FAMILY_NAME,
+    bitsCorrected: TAG36H11_BITS_CORRECTED,
+    minimumDecisionMargin: TAG36H11_MINIMUM_DECISION_MARGIN,
+    tagIds: TAG36H11_DEMO_TAG_IDS,
+  },
+  [ARUCO_4X4_100_FAMILY_NAME]: {
+    familyName: ARUCO_4X4_100_FAMILY_NAME,
+    bitsCorrected: ARUCO_4X4_100_BITS_CORRECTED,
+    minimumDecisionMargin: ARUCO_4X4_100_MINIMUM_DECISION_MARGIN,
+    tagIds: ARUCO_4X4_100_TAG_IDS,
+  },
+};
 
 var detections = [];
 var imgSaveRequested = 0;
@@ -28,11 +48,17 @@ window.onload = () => {
 }
 
 function detectorSettingsDefaults() {
+  const defaultFamilySettings = detectorFamilySettingsFor(DEFAULT_TAG_FAMILY_NAME);
   return {
-    familyName: DEFAULT_TAG_FAMILY_NAME,
-    bitsCorrected: DEFAULT_BITS_CORRECTED,
+    familyName: defaultFamilySettings.familyName,
+    bitsCorrected: defaultFamilySettings.bitsCorrected,
     tagSizeMeters: DEFAULT_TAG_SIZE_METERS,
+    minimumDecisionMargin: defaultFamilySettings.minimumDecisionMargin,
   };
+}
+
+function detectorFamilySettingsFor(familyName) {
+  return DETECTOR_FAMILY_SETTINGS[familyName] || DETECTOR_FAMILY_SETTINGS[DEFAULT_TAG_FAMILY_NAME];
 }
 
 function numberFromInputValue(inputElement, defaultValue) {
@@ -70,28 +96,56 @@ function tagSizeMetersFromInput(inputElement, defaultValue) {
   return parsedTagSizeMeters;
 }
 
+function minimumDecisionMarginFromInput(inputElement, defaultValue) {
+  const parsedMinimumDecisionMargin = numberFromInputValue(inputElement, defaultValue);
+  if (parsedMinimumDecisionMargin < MIN_DECISION_MARGIN) {
+    return defaultValue;
+  }
+
+  return parsedMinimumDecisionMargin;
+}
+
 function readDetectorSettingsFromPage() {
   const settings = detectorSettingsDefaults();
   const familySelect = document.getElementById(DETECTOR_FAMILY_SELECT_ID);
   const bitsCorrectedSelect = document.getElementById(DETECTOR_BITS_CORRECTED_SELECT_ID);
   const tagSizeInput = document.getElementById(DETECTOR_TAG_SIZE_INPUT_ID);
+  const minimumDecisionMarginInput = document.getElementById(DETECTOR_MIN_DECISION_MARGIN_INPUT_ID);
 
   if (familySelect !== null && familySelect.value !== '') {
-    settings.familyName = familySelect.value;
+    const familySettings = detectorFamilySettingsFor(familySelect.value);
+    settings.familyName = familySettings.familyName;
+    settings.bitsCorrected = familySettings.bitsCorrected;
+    settings.minimumDecisionMargin = familySettings.minimumDecisionMargin;
   }
 
   settings.bitsCorrected = bitsCorrectedFromInput(bitsCorrectedSelect, settings.bitsCorrected);
   settings.tagSizeMeters = tagSizeMetersFromInput(tagSizeInput, settings.tagSizeMeters);
+  settings.minimumDecisionMargin = minimumDecisionMarginFromInput(
+    minimumDecisionMarginInput,
+    settings.minimumDecisionMargin);
 
   return settings;
 }
 
-function tagIdsForFamily(familyName) {
-  if (familyName === ARUCO_4X4_100_FAMILY_NAME) {
-    return Array.from({ length: ARUCO_4X4_100_TAG_COUNT }, (_, tagId) => tagId);
+function applyRecommendedControlsForSelectedFamily() {
+  const familySelect = document.getElementById(DETECTOR_FAMILY_SELECT_ID);
+  const bitsCorrectedSelect = document.getElementById(DETECTOR_BITS_CORRECTED_SELECT_ID);
+  const minimumDecisionMarginInput = document.getElementById(DETECTOR_MIN_DECISION_MARGIN_INPUT_ID);
+  const selectedFamilyName = familySelect !== null ? familySelect.value : DEFAULT_TAG_FAMILY_NAME;
+  const recommendedSettings = detectorFamilySettingsFor(selectedFamilyName);
+
+  if (bitsCorrectedSelect !== null) {
+    bitsCorrectedSelect.value = String(recommendedSettings.bitsCorrected);
   }
 
-  return TAG36H11_DEMO_TAG_IDS;
+  if (minimumDecisionMarginInput !== null) {
+    minimumDecisionMarginInput.value = String(recommendedSettings.minimumDecisionMargin);
+  }
+}
+
+function tagIdsForFamily(familyName) {
+  return detectorFamilySettingsFor(familyName).tagIds;
 }
 
 function updateDetectorStatus(message) {
@@ -122,7 +176,7 @@ async function applyDetectorSettingsToApriltagDetector() {
   await applyTagSizeToActiveFamily(settings);
   detections = [];
   updateDetectorStatus(
-    `Detecting ${settings.familyName} with ${settings.bitsCorrected} corrected bit(s); tag size ${settings.tagSizeMeters} m.`);
+    `Detecting ${settings.familyName} with ${settings.bitsCorrected} corrected bit(s); tag size ${settings.tagSizeMeters} m; minimum decision margin ${settings.minimumDecisionMargin}.`);
 }
 
 function queueDetectorSettingsApply() {
@@ -143,11 +197,22 @@ function queueDetectorSettingsApply() {
 }
 
 function registerDetectorSettingsChangeListener() {
+  const familySelect = document.getElementById(DETECTOR_FAMILY_SELECT_ID);
   const detectorSettingElementIds = [
-    DETECTOR_FAMILY_SELECT_ID,
     DETECTOR_BITS_CORRECTED_SELECT_ID,
     DETECTOR_TAG_SIZE_INPUT_ID,
+    DETECTOR_MIN_DECISION_MARGIN_INPUT_ID,
   ];
+
+  if (familySelect !== null) {
+    familySelect.addEventListener('change', function() {
+      applyRecommendedControlsForSelectedFamily();
+      queueDetectorSettingsApply().catch((configurationError) => {
+        console.log(configurationError);
+        updateDetectorStatus(configurationError.message);
+      });
+    });
+  }
 
   detectorSettingElementIds.forEach((elementId) => {
     const detectorSettingElement = document.getElementById(elementId);
@@ -215,9 +280,18 @@ async function init() {
   await detectorReadyPromise;
   await applyCameraInfoToApriltagDetector();
   registerCameraInfoChangeListener();
+  applyRecommendedControlsForSelectedFamily();
   await queueDetectorSettingsApply();
   registerDetectorSettingsChangeListener();
   window.requestAnimationFrame(process_frame);
+}
+
+function filterDetectionsByDecisionMargin(rawDetections) {
+  const settings = readDetectorSettingsFromPage();
+  return rawDetections.filter((detection) => (
+    typeof detection.decision_margin !== 'number'
+    || detection.decision_margin >= settings.minimumDecisionMargin
+  ));
 }
 
 async function process_frame() {
@@ -270,7 +344,8 @@ async function process_frame() {
   });
 
   try {
-    detections = await apriltag.detect(grayscalePixels, ctx.canvas.width, ctx.canvas.height);
+    const rawDetections = await apriltag.detect(grayscalePixels, ctx.canvas.width, ctx.canvas.height);
+    detections = filterDetectionsByDecisionMargin(rawDetections);
   } catch (detectionError) {
     console.log(detectionError);
     window.requestAnimationFrame(process_frame);

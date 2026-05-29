@@ -72,6 +72,11 @@ void when_camera_demo_exposes_aruco_family_configuration(void **state)
     assert_non_null(strstr(video_process_source_text, "readDetectorSettingsFromPage"));
     assert_non_null(strstr(video_process_source_text, "applyDetectorSettingsToApriltagDetector"));
     assert_non_null(strstr(video_process_source_text, "queueDetectorSettingsApply"));
+    assert_non_null(strstr(video_process_source_text, "DETECTOR_FAMILY_SETTINGS"));
+    assert_non_null(strstr(video_process_source_text, "detectorFamilySettingsFor"));
+    assert_non_null(strstr(video_process_source_text, "ARUCO_4X4_100_BITS_CORRECTED = 0"));
+    assert_non_null(strstr(video_process_source_text, "minimumDecisionMargin"));
+    assert_non_null(strstr(video_process_source_text, "filterDetectionsByDecisionMargin"));
     assert_non_null(strstr(video_process_source_text, "set_tag_family"));
 
     free(index_source_text);

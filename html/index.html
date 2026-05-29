@@ -34,6 +34,8 @@
         </select>
         <label for="detector_tag_size_meters">Tag size (meters)</label>
         <input id="detector_tag_size_meters" type="number" min="0.01" step="0.01" value="0.15">
+        <label for="detector_min_decision_margin">Minimum decision margin</label>
+        <input id="detector_min_decision_margin" type="number" min="0" step="1" value="0">
         <p id="detector_status">Detector settings will apply when the WASM detector is ready.</p>
     </fieldset>
     <button id="req_save">Save next detection (local storage)</button>
