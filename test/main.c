@@ -6,6 +6,7 @@
 
 #include "test_str_json.h"
 #include "test_atagjs_detector.h"
+#include "test_apriltag_js_contract.h"
 
 int main(void) {
 
@@ -28,6 +29,26 @@ int main(void) {
             when_destroy_called_without_init_returns_success, NULL, atagjs_test_group_teardown),
         cmocka_unit_test_setup_teardown(
             when_destroy_called_twice_returns_success, NULL, atagjs_test_group_teardown),
+        cmocka_unit_test_setup_teardown(
+            when_init_defaults_to_tag36h11_family, NULL, atagjs_test_group_teardown),
+        cmocka_unit_test_setup_teardown(
+            when_set_tag_family_dict_4x4_100_detects_expected_aruco_id, NULL, atagjs_test_group_teardown),
+        cmocka_unit_test_setup_teardown(
+            when_set_tag_family_switches_back_to_tag36h11, NULL, atagjs_test_group_teardown),
+        cmocka_unit_test_setup_teardown(
+            when_set_tag_family_given_unknown_name_returns_error, NULL, atagjs_test_group_teardown),
+        cmocka_unit_test_setup_teardown(
+            when_set_tag_family_called_before_init_returns_error, NULL, atagjs_test_group_teardown),
+        cmocka_unit_test_setup_teardown(
+            when_set_tag_family_given_invalid_bits_corrected_returns_error, NULL, atagjs_test_group_teardown),
+        cmocka_unit_test_setup_teardown(
+            when_set_tag_family_dict_4x4_100_detects_representative_aruco_ids, NULL, atagjs_test_group_teardown),
+        cmocka_unit_test_setup_teardown(
+            when_tag_size_is_isolated_per_family, NULL, atagjs_test_group_teardown),
+    };
+
+    const struct CMUnitTest apriltag_js_contract_tests[] = {
+        cmocka_unit_test(when_apriltag_js_exposes_set_tag_family_wrapper),
     };
 
     const struct CMUnitTest str_json_tests[] = {
@@ -48,6 +69,11 @@ int main(void) {
     int atagjs_result = cmocka_run_group_tests(atagjs_detector_tests, NULL, NULL);
     if (atagjs_result != 0) {
         return atagjs_result;
+    }
+
+    int contract_result = cmocka_run_group_tests(apriltag_js_contract_tests, NULL, NULL);
+    if (contract_result != 0) {
+        return contract_result;
     }
 
     return cmocka_run_group_tests(str_json_tests, NULL, NULL);

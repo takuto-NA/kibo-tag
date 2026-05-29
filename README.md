@@ -63,7 +63,19 @@ The Makefile has the following targets:
 
 # Detector Details
 
-The apriltag detector uses the [tag36h11](http://ptolemy.berkeley.edu/ptolemyII/ptII11.0/ptII/doc/codeDoc/edu/umich/eecs/april/tag/Tag36h11.html) family ([pre-generated tags](https://github.com/arenaxr/apriltag-gen)). For tag pose estimation, tag sizes must be known. Use ```set_tag_size(tagid, size)``` to tell the detector about the size of a known tag. If the size of a tag is not provided (by calling ```set_tag_size(tagid, size)```), tags are assumed to be of 150 mm.
+The detector defaults to the [tag36h11](http://ptolemy.berkeley.edu/ptolemyII/ptII11.0/ptII/doc/codeDoc/edu/umich/eecs/april/tag/Tag36h11.html) family ([pre-generated tags](https://github.com/arenaxr/apriltag-gen)). ArUco dictionaries from upstream AprilRobotics/apriltag are supported via ```set_tag_family()```.
+
+Supported family names (initial set):
+
+| OpenCV dictionary | AprilRobotics/apriltag family |
+|-------------------|-------------------------------|
+| `DICT_4X4_100` | `tagAruco4x4_100` |
+
+Only one active family is loaded at a time. ```bitsCorrected``` must be between `0` and `2` (default `1`).
+
+For tag pose estimation, tag sizes must be known. Use ```set_tag_size(tagid, size)``` for the **active** family. Unknown sizes default to 150 mm.
+
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for ArUco/OpenCV license attribution.
 
 See pre-generated tags here: https://github.com/arenaxr/apriltag-gen
 
@@ -150,6 +162,16 @@ apriltag.set_tag_size(5, 0.1); // set the size of tag with id 5 to 0.1 meters
 ```javascript
 apriltag.set_camera_info(997.28, 997.28, 636.91, 360.51);
 ```
+
+- Switch tag family (AprilTag or ArUco):
+
+```javascript
+apriltag.set_tag_family("DICT_4X4_100", 1);
+// alias: apriltag.set_tag_family("tagAruco4x4_100", 1);
+apriltag.set_tag_family("tag36h11", 1);
+```
+
+Detection objects include ```family```, ```hamming```, and ```decision_margin``` in addition to ```id```, ```corners```, ```center```, and optional ```pose```.
 
 - Set the detector maximum number of detections, if it should return pose estimates and details about alternative solutions with ```set_max_detections(maxDetections)```, ```set_return_pose(returnPose)``` and ```set_return_solutions(returnSolutions)```, where
   * *maxDetections* is the maximum number of detections (0=return all)

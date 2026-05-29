@@ -1,0 +1,52 @@
+/** @file test_apriltag_js_contract.c
+ *  @brief Contract tests for the browser Apriltag JS wrapper source.
+ */
+
+#include <setjmp.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <cmocka.h>
+
+static const char APRILTAG_JS_SOURCE_PATH[] = "html/apriltag.js";
+static const size_t APRILTAG_JS_SOURCE_MAX_BYTES = 65536;
+
+static char *read_entire_file(const char *file_path, size_t *out_byte_count)
+{
+    FILE *source_file = fopen(file_path, "rb");
+    char *file_buffer = NULL;
+    size_t bytes_read = 0;
+
+    if (source_file == NULL) {
+        return NULL;
+    }
+
+    file_buffer = calloc(APRILTAG_JS_SOURCE_MAX_BYTES, sizeof(char));
+    if (file_buffer == NULL) {
+        fclose(source_file);
+        return NULL;
+    }
+
+    bytes_read = fread(file_buffer, 1, APRILTAG_JS_SOURCE_MAX_BYTES - 1, source_file);
+    fclose(source_file);
+    file_buffer[bytes_read] = '\0';
+
+    if (out_byte_count != NULL) {
+        *out_byte_count = bytes_read;
+    }
+
+    return file_buffer;
+}
+
+void when_apriltag_js_exposes_set_tag_family_wrapper(void **state)
+{
+    size_t source_byte_count = 0;
+    char *source_text = read_entire_file(APRILTAG_JS_SOURCE_PATH, &source_byte_count);
+
+    (void)state;
+    assert_non_null(source_text);
+    assert_true(source_byte_count > 0);
+    assert_non_null(strstr(source_text, "atagjs_set_tag_family"));
+    assert_non_null(strstr(source_text, "set_tag_family"));
+    free(source_text);
+}
