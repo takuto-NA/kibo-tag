@@ -2,7 +2,7 @@
 
 Apriltag detector using the apriltag C library at [https://github.com/AprilRobotics/apriltag](https://github.com/AprilRobotics/apriltag), and compiled to WASM using emscripten.
 
-This is the main WASM apriltag detector source, with additional tests and a [standalone javascript application](https://arenaxr.github.io/apriltag-js-standalone/) that displays the detector output. This allows to develop and test the detector, and then transfer the source to the main [ARENA-core source](https://github.com/arenaxr/arena-web-core).
+This is the main WASM apriltag detector source, with additional tests and a browser camera demo. The live demo for this repository is on [GitHub Pages](https://takuto-na.github.io/kibo-tag/). It extends the original [ARENA standalone application](https://arenaxr.github.io/apriltag-js-standalone/) and can be integrated into the main [ARENA-core source](https://github.com/arenaxr/arena-web-core).
 
 **Apriltags in the browser**
 ![Apriltag detection in the browser](html/example_screenshot.png)
@@ -11,8 +11,8 @@ This is the main WASM apriltag detector source, with additional tests and a [sta
 
 - **apriltag**: submodule of the apriltag library source repository ([https://github.com/AprilRobotics/apriltag](https://github.com/AprilRobotics/apriltag))
 - **bin**: where the resulting binaries are placed
-- **docs**: doxygen documentation of the detector C source; [see the docs](https://arenaxr.github.io/apriltag-js-standalone/docs/files.html).
-- **html**: standalone javascript application that displays the detector output; live [here](https://arenaxr.github.io/apriltag-js-standalone/).
+- **docs**: doxygen documentation of the detector C source; [see the docs](https://takuto-na.github.io/kibo-tag/docs/files.html) (also build locally with `make docs`).
+- **html**: browser camera demo and WASM wrapper; live [here](https://takuto-na.github.io/kibo-tag/).
 - **log**: where valgrind logs are placed
 - **src**: the detector source
 - **test**: cmocka tests
@@ -27,8 +27,9 @@ Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) only. 
 Clone with submodules (required for apriltag sources):
 
 ```bash
-git clone --recurse-submodules <repository-url>
-# or after clone:
+git clone --recurse-submodules https://github.com/takuto-NA/kibo-tag.git
+cd kibo-tag
+# or after clone without submodules:
 git submodule update --init --recursive
 ```
 
@@ -44,6 +45,8 @@ docker run --rm -v "${PWD}:/workspace" -w /workspace kibo-tag-dev make clean   #
 The repository is bind-mounted; test binaries land in `bin/`, WASM artifacts in `html/`. The [Dockerfile](Dockerfile) pins a Linux toolchain (gcc, cmocka, Emscripten) and does not copy source into the image.
 
 ### Browser Camera Demo
+
+Pushes to `master` run CI (`make tests`, WASM build) and deploy `html/` to GitHub Pages at [https://takuto-na.github.io/kibo-tag/](https://takuto-na.github.io/kibo-tag/). Rebuild WASM locally before serving if you changed detector code.
 
 Build the WASM bundle first:
 
@@ -61,18 +64,24 @@ Open [http://localhost:8000](http://localhost:8000), allow camera access, then c
 
 - Use `tag36h11` for the default AprilTag demo.
 - Use `DICT_4X4_100` for OpenCV ArUco 4x4 tags with ids `0..99`.
-- For `DICT_4X4_100`, keep `bitsCorrected` at `0` and use a minimum decision margin to reduce false positives from the smaller 4x4 code space.
-- Set the tag size in meters if you need pose estimates to use your printed tag's physical size.
+- Selecting `DICT_4X4_100` in the page applies recommended defaults: `bitsCorrected = 0` and minimum decision margin `50`. You can tune margin higher (for example `80`–`100`) if false positives persist.
+- Set the tag size in meters if you need pose estimates to match your printed tag.
 
-Point the camera at a printed tag from the selected family. The canvas overlays detected corners and the tag id.
+Point the camera at a printed tag from the selected family. The canvas shows the live camera frame with corners and tag id overlaid. Detections below the configured minimum decision margin are hidden in the UI (they are still computed in WASM).
+
+The demo draws the **previous frame's** detection boxes on the **current** video frame while WASM detection runs, so overlays can look slightly behind fast motion. Detection runs in a Web Worker at camera resolution (see the camera parameters textarea, default `1280x720`).
+
+Closing the tab releases the camera (`pagehide` stops tracks and the detection loop).
 
 ### Native Linux
 
 Install make, gcc, [emscripten](https://emscripten.org/docs/getting_started/downloads.html), [cmocka](https://cmocka.org/), [valgrind](https://www.valgrind.org/downloads/?src=www.discoversdk.com), and [doxygen](https://www.doxygen.nl/manual/install.html).  Cmocka and valgrind are only necessary to run the tests and memory checks. Doxygen is needed if you want to build the documentation.
 
-To compile and run tests, use make:
+To compile and run tests:
 
-```make <target>```
+```bash
+make <target>
+```
 
 The Makefile has the following targets:
 
@@ -84,7 +93,7 @@ The Makefile has the following targets:
 - **clean**: Cleans non-source files.
 - **help**: outputs description of targets.
 
-# Detector Details
+## Detector Details
 
 The detector defaults to the [tag36h11](http://ptolemy.berkeley.edu/ptolemyII/ptII11.0/ptII/doc/codeDoc/edu/umich/eecs/april/tag/Tag36h11.html) family ([pre-generated tags](https://github.com/arenaxr/apriltag-gen)). ArUco dictionaries from upstream AprilRobotics/apriltag are supported via ```set_tag_family()```.
 
@@ -104,7 +113,7 @@ See pre-generated tags here: https://github.com/arenaxr/apriltag-gen
 
 ## Detector API
 
-The C detector documentation is [here](https://arenaxr.github.io/apriltag-js-standalone/docs/files.html). The detector calls are documented in [apriltag_js.c](https://arenaxr.github.io/apriltag-js-standalone/docs/apriltag__js_8h.html). A usage example can be found at [atagjs_example](src/atagjs_example.c).
+The C detector documentation is [here](https://takuto-na.github.io/kibo-tag/docs/files.html). The detector calls are documented in [apriltag_js.h](https://takuto-na.github.io/kibo-tag/docs/apriltag__js_8h.html). A usage example can be found at [atagjs_example](src/atagjs_example.c).
 
 When running in a browser, the C code is compiled to WASM and wrapped by the javascript class [Apriltag](html/apriltag.js) using emscripten's [cwrap()](https://emscripten.org/docs/api_reference/preamble.js.html#cwrap). The detector C calls are private to the **[Apriltag](html/apriltag.js)** class, which exposes the following calls:
 
@@ -124,7 +133,7 @@ apriltag.detect(grayscaleImg, imgWidth, imgHeight)
 
 > ```detect()``` returns an array of JSON objects on success. On failure (invalid dimensions, detector not ready, or C-side error JSON) it throws an ```Error``` with a message string.
 >
-> Example detection:
+> Example detection (with `return_pose = 1` and `return_solutions = 1`):
 >
 > ```json
 > [
@@ -164,11 +173,11 @@ apriltag.detect(grayscaleImg, imgWidth, imgHeight)
 > * *size* is the tag size in meters (based on the tag id)
 > * *corners* are x and y corners of the tag (in fractional pixel coordinates)
 > * *center* is the center of the tag (in fractional pixel coordinates)
-> * *pose*: is the pose estimation, only returned if ```return_pose = 1```
+> * *pose*: pose estimation, only when ```return_pose = 1``` and the solver succeeds; otherwise corners and ```decision_margin``` are still returned without ```pose```
 >   * *R* is the rotation matrix (**column major**)
 >   * *t* is the translation
 >   * *e* is the object-space error of the pose estimation
->   * *asol* is the alternative solution candidate, only returned if ```return_solutions = 1``` (see: [apriltag_pose.h](https://github.com/AprilRobotics/apriltag/blob/master/apriltag_pose.h))
+>   * *asol* is the alternative solution candidate, only when ```return_solutions = 1``` (see: [apriltag_pose.h](https://github.com/AprilRobotics/apriltag/blob/master/apriltag_pose.h))
 
 - Use ```set_tag_size(tagid, size)``` to tell the detector about the size of a known tag. This size is used when computing the tag's pose and should be set before calling ```detect()```,  where
   * *tagid* is the id of the apriltag
@@ -189,8 +198,9 @@ apriltag.set_camera_info(997.28, 997.28, 636.91, 360.51);
 - Switch tag family (AprilTag or ArUco):
 
 ```javascript
-apriltag.set_tag_family("DICT_4X4_100", 1);
-// alias: apriltag.set_tag_family("tagAruco4x4_100", 1);
+// ArUco 4x4: prefer bitsCorrected 0 in live scenes (fewer false positives)
+apriltag.set_tag_family("DICT_4X4_100", 0);
+// alias: apriltag.set_tag_family("tagAruco4x4_100", 0);
 apriltag.set_tag_family("tag36h11", 1);
 ```
 
@@ -202,12 +212,10 @@ Detection objects include ```family```, ```hamming```, and ```decision_margin```
   * *returnSolutions* indicates if the alternative pose estimates solution is returned, (0=do not return; 1=return)
 
 ```javascript
-// return all detections
-apriltag.set_max_detections(0);
-// return pose estimate
+// Override browser demo defaults (see Defaults section) when embedding the wrapper yourself:
+apriltag.set_max_detections(0);   // 0 = return all detections
 apriltag.set_return_pose(1);
-// return pose estimate alternative solution details
-apriltag.set_return_solutions(1);
+apriltag.set_return_solutions(1); // includes alternative pose solutions; heavier
 ```
 
 ### Javascript example
@@ -235,7 +243,7 @@ detections = await apriltag.detect(grayscalePixels, ctx.canvas.width, ctx.canvas
 // do something with the detections returned by detect() ...
 ```
 
-See the full example in the [html](html) folder, live at [https://arenaxr.github.io/apriltag-js-standalone/](https://arenaxr.github.io/apriltag-js-standalone/).
+See the full camera demo in the [html](html) folder ([video_process.js](html/video_process.js), [apriltag.js](html/apriltag.js)), live at [https://takuto-na.github.io/kibo-tag/](https://takuto-na.github.io/kibo-tag/).
 
 
 ## Detector Options
@@ -244,25 +252,24 @@ See the full example in the [html](html) folder, live at [https://arenaxr.github
 
 ### Defaults
 
-The detector is initialized with the following options defined in the [Apriltag](html/apriltag.js) constructor:
+The [Apriltag](html/apriltag.js) wrapper applies detector options after WASM init. The **browser camera demo** uses a conservative profile to limit false positives and WASM load:
 
 ```javascript
+const BROWSER_DEMO_MAX_DETECTIONS = 32;
+const BROWSER_DEMO_RETURN_POSE = 1;
+const BROWSER_DEMO_RETURN_SOLUTIONS = 0;
+
 this._opt = {
-  // Decimate input image by this factor
   quad_decimate: 2.0,
-  // What Gaussian blur should be applied to the segmented image; standard deviation in pixels
   quad_sigma: 0.0,
-   // Use this many CPU threads (no effect)
   nthreads: 1,
-  // Spend more time trying to align edges of tags
   refine_edges: 1,
-  // Maximum detections to return (0=return all)
-  max_detections: 0,
-  // Return pose (requires camera parameters)
-  return_pose: 1,
-  // Return pose solutions details
-  return_solutions: 1
-}
+  max_detections: BROWSER_DEMO_MAX_DETECTIONS,
+  return_pose: BROWSER_DEMO_RETURN_POSE,
+  return_solutions: BROWSER_DEMO_RETURN_SOLUTIONS
+};
 ```
 
-You can edit the [source file](html/apriltag.js) to change these defaults too.
+Use ```set_max_detections```, ```set_return_pose```, and ```set_return_solutions``` to override at runtime. For example, ```set_max_detections(0)``` returns all detections and ```set_return_solutions(1)``` includes alternative pose solutions in JSON (heavier).
+
+The native C API defaults to ```return_pose = 1``` and ```return_solutions = 0``` on ```atagjs_init()``` until options are changed.
