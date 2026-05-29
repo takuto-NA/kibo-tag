@@ -102,7 +102,7 @@ valgrind:
 tests: $(APRILTAG_OBJS) $(OBJS) $(TEST_SRCS)
 	@mkdir -p $(BINDIR)
 	@echo -en "CC ";
-	$(CC) $(TESTDIR)/main.c -o $(BINDIR)/$(TEST_BINARY) $^ $(DEBUG) $(CFLAGS) $(LIBS) $(TEST_LIBS) -I$(SRCDIR)
+	$(CC) $(TESTDIR)/main.c -o $(BINDIR)/$(TEST_BINARY) $^ $(DEBUG) $(CFLAGS) $(LIBS) $(TEST_LIBS) -I$(SRCDIR) -I$(APRILTAG)
 	@which ldconfig && ldconfig -C /tmp/ld.so.cache || true # caching the library linking
 	@echo -en " Running tests: ";
 	./$(BINDIR)/$(TEST_BINARY)

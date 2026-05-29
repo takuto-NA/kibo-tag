@@ -26,12 +26,12 @@
  * default options: quad_decimate=2.0; quad_sigma=0.0; nthreads=1; refine_edges=1; return_pose=1
  * @sa set_detector_options for meaning of options
  *
- * @return 0=success; -1 on failure
+ * @return 0=success; -1 if already initialized or on failure
  */
 int atagjs_init();
 
 /**
- * @brief Releases resources
+ * @brief Releases resources (safe to call when not initialized)
  *
  * @return 0=success
  */
