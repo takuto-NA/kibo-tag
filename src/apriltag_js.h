@@ -48,12 +48,14 @@ int atagjs_destroy();
  * @param return_pose Detect returns pose of detected tags (0=does not return pose; returns pose otherwise)
  * @param return_solutions Detect returns details about both solutions of the pose estimation, if available
  *
- * @return 0=success
+ * @return 0=success; -1 if detector is not initialized (call atagjs_init first)
  */
 int atagjs_set_detector_options(float decimate, float sigma, int nthreads, int refine_edges, int max_detections, int return_pose, int return_solutions);
 
 /**
  * @brief Sets camera intrinsics (in pixels) for tag pose estimation
+ *
+ * May be called before atagjs_init().
  *
  * @param fx x focal lenght in pixels
  * @param fy y focal lenght in pixels
@@ -71,19 +73,20 @@ int atagjs_set_pose_info(double fx, double fy, double cx, double cy);
  * @param height Height of the image
  * @param stride How many pixels per row (=width typically)
  *
- * @return the pointer to the image buffer
+ * @return pointer to the image buffer; NULL if width, height, or stride are invalid or allocation fails
  *
  * @warning caller of detect is responsible for putting *grayscale* image pixels in this buffer
+ * @warning invalid dimensions do not change the existing buffer
  */
 uint8_t *atagjs_set_img_buffer(int width, int height, int stride);
 
 /**
  * @brief Set the size of a known tag; This size will be used for pose computation later
  *
- * @param tagid the ID of the tag
+ * @param tagid the ID of the tag (0 <= tagid < MAX_TAG_ID)
  * @param size the size of the tag in meters
  *
- * @return 0=success; -1 on failure
+ * @return 0=success; -1 if tagid is out of range
  *
  */
 int atagjs_set_tag_size(int tagid, double size);
