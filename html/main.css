@@ -78,6 +78,23 @@ code {
   font-weight: 400;
 }
 
+fieldset#detector_settings {
+  border: 1px solid #ccc;
+  margin: 1em 0;
+  padding: 1em;
+}
+
+fieldset#detector_settings label {
+  display: inline-block;
+  font-weight: 400;
+  margin: 0 0.5em 0.5em 0;
+}
+
+fieldset#detector_settings input,
+fieldset#detector_settings select {
+  margin: 0 1em 0.5em 0;
+}
+
 div#container {
   margin: 0 auto 0 auto;
   max-width: 60em;

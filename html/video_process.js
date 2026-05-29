@@ -2,13 +2,166 @@ import * as Comlink from "https://unpkg.com/comlink/dist/esm/comlink.mjs";
 
 import * as Base64 from "./base64.js";
 
-var detections=[];
-var imgSaveRequested=0;
+const DEFAULT_TAG_FAMILY_NAME = 'tag36h11';
+const ARUCO_4X4_100_FAMILY_NAME = 'DICT_4X4_100';
+const DEFAULT_BITS_CORRECTED = 1;
+const DEFAULT_TAG_SIZE_METERS = 0.15;
+const MIN_BITS_CORRECTED = 0;
+const MAX_BITS_CORRECTED = 2;
+const MIN_TAG_SIZE_METERS = 0.01;
+const DETECTOR_FAMILY_SELECT_ID = 'detector_family';
+const DETECTOR_BITS_CORRECTED_SELECT_ID = 'detector_bits_corrected';
+const DETECTOR_TAG_SIZE_INPUT_ID = 'detector_tag_size_meters';
+const DETECTOR_STATUS_ID = 'detector_status';
+const TAG36H11_DEMO_TAG_IDS = [5];
+const ARUCO_4X4_100_TAG_COUNT = 100;
 
-window.onload = (event) => {
+var detections = [];
+var imgSaveRequested = 0;
+var detectorSettingsApplyChain = Promise.resolve();
+var detectorSettingsApplyInProgress = false;
+
+window.onload = () => {
   init();
 
   loadImg('saved_det');
+}
+
+function detectorSettingsDefaults() {
+  return {
+    familyName: DEFAULT_TAG_FAMILY_NAME,
+    bitsCorrected: DEFAULT_BITS_CORRECTED,
+    tagSizeMeters: DEFAULT_TAG_SIZE_METERS,
+  };
+}
+
+function numberFromInputValue(inputElement, defaultValue) {
+  if (inputElement === null) {
+    return defaultValue;
+  }
+
+  if (inputElement.value.trim() === '') {
+    return defaultValue;
+  }
+
+  const parsedValue = Number(inputElement.value);
+  if (!Number.isFinite(parsedValue)) {
+    return defaultValue;
+  }
+
+  return parsedValue;
+}
+
+function bitsCorrectedFromInput(inputElement, defaultValue) {
+  const parsedBitsCorrected = Math.trunc(numberFromInputValue(inputElement, defaultValue));
+  if (parsedBitsCorrected < MIN_BITS_CORRECTED || parsedBitsCorrected > MAX_BITS_CORRECTED) {
+    return defaultValue;
+  }
+
+  return parsedBitsCorrected;
+}
+
+function tagSizeMetersFromInput(inputElement, defaultValue) {
+  const parsedTagSizeMeters = numberFromInputValue(inputElement, defaultValue);
+  if (parsedTagSizeMeters < MIN_TAG_SIZE_METERS) {
+    return defaultValue;
+  }
+
+  return parsedTagSizeMeters;
+}
+
+function readDetectorSettingsFromPage() {
+  const settings = detectorSettingsDefaults();
+  const familySelect = document.getElementById(DETECTOR_FAMILY_SELECT_ID);
+  const bitsCorrectedSelect = document.getElementById(DETECTOR_BITS_CORRECTED_SELECT_ID);
+  const tagSizeInput = document.getElementById(DETECTOR_TAG_SIZE_INPUT_ID);
+
+  if (familySelect !== null && familySelect.value !== '') {
+    settings.familyName = familySelect.value;
+  }
+
+  settings.bitsCorrected = bitsCorrectedFromInput(bitsCorrectedSelect, settings.bitsCorrected);
+  settings.tagSizeMeters = tagSizeMetersFromInput(tagSizeInput, settings.tagSizeMeters);
+
+  return settings;
+}
+
+function tagIdsForFamily(familyName) {
+  if (familyName === ARUCO_4X4_100_FAMILY_NAME) {
+    return Array.from({ length: ARUCO_4X4_100_TAG_COUNT }, (_, tagId) => tagId);
+  }
+
+  return TAG36H11_DEMO_TAG_IDS;
+}
+
+function updateDetectorStatus(message) {
+  const detectorStatus = document.getElementById(DETECTOR_STATUS_ID);
+  if (detectorStatus === null) {
+    return;
+  }
+
+  detectorStatus.textContent = message;
+}
+
+async function applyTagSizeToActiveFamily(settings) {
+  const tagIds = tagIdsForFamily(settings.familyName);
+  const tagSizePromises = tagIds.map((tagId) => (
+    window.apriltag.set_tag_size(tagId, settings.tagSizeMeters)
+  ));
+  await Promise.all(tagSizePromises);
+}
+
+async function applyDetectorSettingsToApriltagDetector() {
+  // Guard: detector settings can be changed before the worker-backed detector is ready.
+  if (typeof window.apriltag === 'undefined') {
+    return;
+  }
+
+  const settings = readDetectorSettingsFromPage();
+  await window.apriltag.set_tag_family(settings.familyName, settings.bitsCorrected);
+  await applyTagSizeToActiveFamily(settings);
+  detections = [];
+  updateDetectorStatus(
+    `Detecting ${settings.familyName} with ${settings.bitsCorrected} corrected bit(s); tag size ${settings.tagSizeMeters} m.`);
+}
+
+function queueDetectorSettingsApply() {
+  detectorSettingsApplyChain = detectorSettingsApplyChain
+    .catch((previousConfigurationError) => {
+      console.log(previousConfigurationError);
+    })
+    .then(async () => {
+      detectorSettingsApplyInProgress = true;
+      try {
+        await applyDetectorSettingsToApriltagDetector();
+      } finally {
+        detectorSettingsApplyInProgress = false;
+      }
+    });
+
+  return detectorSettingsApplyChain;
+}
+
+function registerDetectorSettingsChangeListener() {
+  const detectorSettingElementIds = [
+    DETECTOR_FAMILY_SELECT_ID,
+    DETECTOR_BITS_CORRECTED_SELECT_ID,
+    DETECTOR_TAG_SIZE_INPUT_ID,
+  ];
+
+  detectorSettingElementIds.forEach((elementId) => {
+    const detectorSettingElement = document.getElementById(elementId);
+    if (detectorSettingElement === null) {
+      return;
+    }
+
+    detectorSettingElement.addEventListener('change', function() {
+      queueDetectorSettingsApply().catch((configurationError) => {
+        console.log(configurationError);
+        updateDetectorStatus(configurationError.message);
+      });
+    });
+  });
 }
 
 function readCameraInfoFromWindow() {
@@ -27,12 +180,12 @@ function readCameraInfoFromWindow() {
   };
 }
 
-function applyCameraInfoToApriltagDetector() {
+async function applyCameraInfoToApriltagDetector() {
   const cameraInfo = readCameraInfoFromWindow();
   if (cameraInfo === null || typeof window.apriltag === 'undefined') {
     return;
   }
-  window.apriltag.set_camera_info(
+  await window.apriltag.set_camera_info(
     cameraInfo.focalLengthX,
     cameraInfo.focalLengthY,
     cameraInfo.principalPointX,
@@ -45,19 +198,26 @@ function registerCameraInfoChangeListener() {
     return;
   }
   cameraInfoTextArea.addEventListener('change', function() {
-    applyCameraInfoToApriltagDetector();
+    applyCameraInfoToApriltagDetector().catch((cameraInfoError) => {
+      console.log(cameraInfoError);
+    });
   });
 }
 
 async function init() {
   const Apriltag = Comlink.wrap(new Worker("apriltag.js"));
+  let resolveDetectorReady;
+  const detectorReadyPromise = new Promise((resolve) => {
+    resolveDetectorReady = resolve;
+  });
 
-  window.apriltag = await new Apriltag(Comlink.proxy(() => {
-    applyCameraInfoToApriltagDetector();
-    registerCameraInfoChangeListener();
-    window.apriltag.set_tag_size(5, .5);
-    window.requestAnimationFrame(process_frame);
-  }));
+  window.apriltag = await new Apriltag(Comlink.proxy(resolveDetectorReady));
+  await detectorReadyPromise;
+  await applyCameraInfoToApriltagDetector();
+  registerCameraInfoChangeListener();
+  await queueDetectorSettingsApply();
+  registerDetectorSettingsChangeListener();
+  window.requestAnimationFrame(process_frame);
 }
 
 async function process_frame() {
@@ -86,6 +246,11 @@ async function process_frame() {
     imageDataPixels[i + 2] = grayscale;
   }
   ctx.putImageData(imageData, 0, 0);
+
+  if (detectorSettingsApplyInProgress) {
+    window.requestAnimationFrame(process_frame);
+    return;
+  }
 
   detections.forEach(det => {
     ctx.beginPath();
