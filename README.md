@@ -61,6 +61,7 @@ Open [http://localhost:8000](http://localhost:8000), allow camera access, then c
 
 - Use `tag36h11` for the default AprilTag demo.
 - Use `DICT_4X4_100` for OpenCV ArUco 4x4 tags with ids `0..99`.
+- For `DICT_4X4_100`, keep `bitsCorrected` at `0` and use a minimum decision margin to reduce false positives from the smaller 4x4 code space.
 - Set the tag size in meters if you need pose estimates to use your printed tag's physical size.
 
 Point the camera at a printed tag from the selected family. The canvas overlays detected corners and the tag id.
