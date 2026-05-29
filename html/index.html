@@ -18,7 +18,24 @@
 
     <video id="webcam_canvas" playsinline autoplay style="display:none"></video>
     <canvas id="out_canvas"></canvas>
-    Put up an apriltag to see its detection.
+    Put up a tag from the selected family to see its detection.
+    <fieldset id="detector_settings">
+        <legend>Detector Settings</legend>
+        <label for="detector_family">Tag family</label>
+        <select id="detector_family">
+            <option value="tag36h11" selected>tag36h11 (default AprilTag)</option>
+            <option value="DICT_4X4_100">DICT_4X4_100 (OpenCV ArUco)</option>
+        </select>
+        <label for="detector_bits_corrected">Bits corrected</label>
+        <select id="detector_bits_corrected">
+            <option value="0">0</option>
+            <option value="1" selected>1</option>
+            <option value="2">2</option>
+        </select>
+        <label for="detector_tag_size_meters">Tag size (meters)</label>
+        <input id="detector_tag_size_meters" type="number" min="0.01" step="0.01" value="0.15">
+        <p id="detector_status">Detector settings will apply when the WASM detector is ready.</p>
+    </fieldset>
     <button id="req_save">Save next detection (local storage)</button>
     <p>Camera Parameters (valid json, as given by <a href="https://www.calibdb.net/">calibdb</a>):<br/>
      <textarea id="camera_info" rows="10" cols="100">

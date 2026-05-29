@@ -49,6 +49,7 @@ int main(void) {
 
     const struct CMUnitTest apriltag_js_contract_tests[] = {
         cmocka_unit_test(when_apriltag_js_exposes_set_tag_family_wrapper),
+        cmocka_unit_test(when_camera_demo_exposes_aruco_family_configuration),
     };
 
     const struct CMUnitTest str_json_tests[] = {

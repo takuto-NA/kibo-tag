@@ -43,6 +43,28 @@ docker run --rm -v "${PWD}:/workspace" -w /workspace kibo-tag-dev make clean   #
 
 The repository is bind-mounted; test binaries land in `bin/`, WASM artifacts in `html/`. The [Dockerfile](Dockerfile) pins a Linux toolchain (gcc, cmocka, Emscripten) and does not copy source into the image.
 
+### Browser Camera Demo
+
+Build the WASM bundle first:
+
+```bash
+docker run --rm -v "${PWD}:/workspace" -w /workspace kibo-tag-dev make apriltag_wasm.js
+```
+
+Serve the `html/` directory over HTTP; browser camera APIs and web workers are not reliable from `file://` URLs. One simple option from the repository root is:
+
+```bash
+python -m http.server 8000 --directory html
+```
+
+Open [http://localhost:8000](http://localhost:8000), allow camera access, then choose the detector family in the page:
+
+- Use `tag36h11` for the default AprilTag demo.
+- Use `DICT_4X4_100` for OpenCV ArUco 4x4 tags with ids `0..99`.
+- Set the tag size in meters if you need pose estimates to use your printed tag's physical size.
+
+Point the camera at a printed tag from the selected family. The canvas overlays detected corners and the tag id.
+
 ### Native Linux
 
 Install make, gcc, [emscripten](https://emscripten.org/docs/getting_started/downloads.html), [cmocka](https://cmocka.org/), [valgrind](https://www.valgrind.org/downloads/?src=www.discoversdk.com), and [doxygen](https://www.doxygen.nl/manual/install.html).  Cmocka and valgrind are only necessary to run the tests and memory checks. Doxygen is needed if you want to build the documentation.
