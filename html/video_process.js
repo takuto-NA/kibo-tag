@@ -40,6 +40,19 @@ var detections = [];
 var imgSaveRequested = 0;
 var detectorSettingsApplyChain = Promise.resolve();
 var detectorSettingsApplyInProgress = false;
+var videoProcessingActive = true;
+
+function registerVideoProcessingReleaseOnPageExit() {
+  window.addEventListener('pagehide', function(pageHideEvent) {
+    // Guard: bfcache restore keeps the page alive; the detection loop may resume with the page.
+    if (pageHideEvent.persisted) {
+      return;
+    }
+    videoProcessingActive = false;
+  });
+}
+
+registerVideoProcessingReleaseOnPageExit();
 
 window.onload = () => {
   init();
@@ -295,6 +308,9 @@ function filterDetectionsByDecisionMargin(rawDetections) {
 }
 
 async function process_frame() {
+  if (!videoProcessingActive) {
+    return;
+  }
 
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;

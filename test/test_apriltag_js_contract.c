@@ -11,6 +11,7 @@
 static const char APRILTAG_JS_SOURCE_PATH[] = "html/apriltag.js";
 static const char DEMO_INDEX_SOURCE_PATH[] = "html/index.html";
 static const char DEMO_VIDEO_PROCESS_SOURCE_PATH[] = "html/video_process.js";
+static const char DEMO_MAIN_SOURCE_PATH[] = "html/main.js";
 static const size_t APRILTAG_JS_SOURCE_MAX_BYTES = 65536;
 
 static char *read_entire_file(const char *file_path, size_t *out_byte_count)
@@ -80,5 +81,34 @@ void when_camera_demo_exposes_aruco_family_configuration(void **state)
     assert_non_null(strstr(video_process_source_text, "set_tag_family"));
 
     free(index_source_text);
+    free(video_process_source_text);
+}
+
+void when_user_leaves_demo_page_camera_tracks_are_stopped(void **state)
+{
+    size_t main_source_byte_count = 0;
+    char *main_source_text = read_entire_file(DEMO_MAIN_SOURCE_PATH, &main_source_byte_count);
+
+    (void)state;
+    assert_non_null(main_source_text);
+    assert_true(main_source_byte_count > 0);
+    assert_non_null(strstr(main_source_text, "pagehide"));
+    assert_non_null(strstr(main_source_text, "getTracks"));
+    assert_non_null(strstr(main_source_text, "mediaTrack.stop"));
+    assert_non_null(strstr(main_source_text, "video.srcObject = null"));
+    free(main_source_text);
+}
+
+void when_user_leaves_demo_page_video_processing_stops(void **state)
+{
+    size_t video_process_source_byte_count = 0;
+    char *video_process_source_text =
+        read_entire_file(DEMO_VIDEO_PROCESS_SOURCE_PATH, &video_process_source_byte_count);
+
+    (void)state;
+    assert_non_null(video_process_source_text);
+    assert_true(video_process_source_byte_count > 0);
+    assert_non_null(strstr(video_process_source_text, "pagehide"));
+    assert_non_null(strstr(video_process_source_text, "videoProcessingActive = false"));
     free(video_process_source_text);
 }
