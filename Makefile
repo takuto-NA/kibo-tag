@@ -87,16 +87,18 @@ valgrind:
 		$(BINDIR)/$(BINARY) $(VALGRIND_TEST_ARGS)
 	@echo -en "\nCheck the log file: $(LOGDIR)/$@.log\n"
 
-tests: $(APRILTAG_OBJS) $(OBJS) $(TEST_SRCS)
+CMOCKA_TEST_INPUTS := $(APRILTAG_OBJS) $(OBJS) $(TEST_SRCS)
+
+tests: $(CMOCKA_TEST_INPUTS)
 	@mkdir -p $(BINDIR)
 	@echo -en "CC ";
-	$(CC) $(TESTDIR)/main.c -o $(BINDIR)/$(TEST_BINARY) $^ $(DEBUG) $(CFLAGS) $(LIBS) $(TEST_LIBS) -I$(SRCDIR) -I$(APRILTAG) -I$(APRILTAG)/aruco
+	$(CC) $(TESTDIR)/main.c -o $(BINDIR)/$(TEST_BINARY) $(CMOCKA_TEST_INPUTS) $(DEBUG) $(CFLAGS) $(LIBS) $(TEST_LIBS) -I$(SRCDIR) -I$(APRILTAG) -I$(APRILTAG)/aruco
 	@echo -en " Running tests: ";
 	./$(BINDIR)/$(TEST_BINARY)
-	@echo -en " Running JS logic tests: ";
-	$(NODE) $(TESTDIR)/detector_settings_logic.test.mjs
+	@$(MAKE) js-logic-tests
 
 js-logic-tests:
+	@echo -en " Running JS logic tests: ";
 	$(NODE) $(TESTDIR)/detector_settings_logic.test.mjs
 
 apriltag_wasm.js: $(APRILTAG_SRCS) $(SRCS)

@@ -79,7 +79,21 @@ static const size_t ERROR_JSON_ALLOC_BYTES = 256;
 static const int POSE_ORTHOGONAL_ITERATION_COUNT = 50;
 static const size_t MAT3_JSON_BUFFER_BYTES = 256;
 static const size_t VEC3_JSON_BUFFER_BYTES = 128;
+static const size_t CENTER_JSON_BUFFER_BYTES = 64;
 static const size_t CORNERS_CENTER_JSON_BUFFER_BYTES = 256;
+
+typedef struct {
+    apriltag_pose_t pose;
+    double error;
+    int valid;
+} pose_candidate_t;
+
+typedef struct {
+    double primary_error;
+    const apriltag_pose_t *alternative_pose;
+    double alternative_error;
+    int unique_solution;
+} pose_selection_result_t;
 
 static int g_max_detections = 0;
 static int g_return_pose = 1;
@@ -107,6 +121,11 @@ static int tag_id_is_valid_for_active_family(int tag_id);
 static int apriltag_pose_has_valid_matrices(const apriltag_pose_t *pose);
 static void apriltag_pose_clear(apriltag_pose_t *pose);
 static void apriltag_pose_destroy_matrices(apriltag_pose_t *pose);
+static void transfer_pose_ownership(apriltag_pose_t *destination, apriltag_pose_t *source);
+static pose_selection_result_t select_best_pose_and_alternative(
+    pose_candidate_t *first_candidate,
+    pose_candidate_t *second_candidate,
+    apriltag_pose_t *out_primary_pose);
 static void format_mat3x3_column_major_json(char *output_buffer, size_t output_buffer_bytes, const matd_t *matrix);
 static void format_vec3_json(char *output_buffer, size_t output_buffer_bytes, const matd_t *vector);
 static void format_corners_and_center_json(
@@ -327,7 +346,7 @@ static void format_detection_point_json(
     const char *family_name)
 {
     char corners_json[CORNERS_CENTER_JSON_BUFFER_BYTES];
-    char center_json[VEC3_JSON_BUFFER_BYTES];
+    char center_json[CENTER_JSON_BUFFER_BYTES];
 
     format_corners_and_center_json(
         corners_json,
@@ -357,7 +376,7 @@ static void format_detection_point_pose_json(
     const char *alternative_solution_json)
 {
     char corners_json[CORNERS_CENTER_JSON_BUFFER_BYTES];
-    char center_json[VEC3_JSON_BUFFER_BYTES];
+    char center_json[CENTER_JSON_BUFFER_BYTES];
     char rotation_json[MAT3_JSON_BUFFER_BYTES];
     char translation_json[VEC3_JSON_BUFFER_BYTES];
     const char *alternative_solution_suffix =
@@ -580,7 +599,7 @@ int atagjs_set_tag_size(int tag_id, double size_meters)
 }
 
 EMSCRIPTEN_KEEPALIVE
-int atagjs_set_default_tag_size(double size_meters)
+int atagjs_set_all_tag_sizes(double size_meters)
 {
     if (g_active_tag_family_descriptor == NULL) {
         return -1;
@@ -596,6 +615,8 @@ EMSCRIPTEN_KEEPALIVE
 t_str_json *atagjs_detect()
 {
     char detection_fragment[STR_DET_LEN + 1];
+    char *alternative_solution_json = NULL;
+    int alternative_solution_json_size = 0;
 
     str_json_destroy(&g_detection_json);
 
@@ -631,6 +652,13 @@ t_str_json *atagjs_detect()
         return make_error_json("Could not allocate memory for detections");
     }
 
+    if (g_return_pose != 0 && g_return_solutions != 0) {
+        alternative_solution_json = malloc(STR_DET_LEN);
+        if (alternative_solution_json != NULL) {
+            alternative_solution_json_size = STR_DET_LEN;
+        }
+    }
+
     str_json_concat(&g_detection_json, "[ ");
 
     for (int detection_index = 0; detection_index < detection_count; detection_index++) {
@@ -648,18 +676,12 @@ t_str_json *atagjs_detect()
             double tag_size_meters = tag_size_meters_from_id(detection->id);
             apriltag_pose_t pose = { .R = NULL, .t = NULL };
             double pose_error = 0.0;
-            char *alternative_solution_json = NULL;
-            int alternative_solution_json_size = 0;
 
             g_detection_pose_info.det = detection;
             g_detection_pose_info.tagsize = tag_size_meters;
 
-            if (g_return_solutions != 0) {
-                alternative_solution_json = malloc(STR_DET_LEN);
-                if (alternative_solution_json != NULL) {
-                    alternative_solution_json[0] = '\0';
-                    alternative_solution_json_size = STR_DET_LEN;
-                }
+            if (alternative_solution_json != NULL) {
+                alternative_solution_json[0] = '\0';
             }
 
             pose_error = estimate_tag_pose_with_solution(
@@ -681,10 +703,6 @@ t_str_json *atagjs_detect()
             } else {
                 format_detection_point_json(detection_fragment, detection, family_name);
             }
-
-            if (alternative_solution_json != NULL) {
-                free(alternative_solution_json);
-            }
         }
 
         if (detection_index > 0) {
@@ -693,62 +711,71 @@ t_str_json *atagjs_detect()
         str_json_concat(&g_detection_json, detection_fragment);
     }
 
+    if (alternative_solution_json != NULL) {
+        free(alternative_solution_json);
+    }
+
     str_json_concat(&g_detection_json, " ]");
     apriltag_detections_destroy(detections);
     return &g_detection_json;
 }
 
-static void select_best_pose_and_alternative(
-    apriltag_pose_t *pose_first,
-    double error_first,
-    int first_pose_valid,
-    apriltag_pose_t *pose_second,
-    double error_second,
-    int second_pose_valid,
-    apriltag_pose_t *out_primary_pose,
-    double *out_primary_error,
-    apriltag_pose_t **out_alternative_pose,
-    double *out_alternative_error,
-    int *out_unique_solution)
+static void transfer_pose_ownership(apriltag_pose_t *destination, apriltag_pose_t *source)
 {
+    destination->R = source->R;
+    destination->t = source->t;
+    source->R = NULL;
+    source->t = NULL;
+}
+
+static pose_selection_result_t select_best_pose_and_alternative(
+    pose_candidate_t *first_candidate,
+    pose_candidate_t *second_candidate,
+    apriltag_pose_t *out_primary_pose)
+{
+    pose_selection_result_t selection_result = {
+        .primary_error = 0.0,
+        .alternative_pose = NULL,
+        .alternative_error = 0.0,
+        .unique_solution = 0,
+    };
+
     apriltag_pose_clear(out_primary_pose);
-    *out_alternative_pose = NULL;
-    *out_alternative_error = 0.0;
-    *out_unique_solution = 0;
 
-    if (first_pose_valid && (!second_pose_valid || error_first <= error_second)) {
-        out_primary_pose->R = pose_first->R;
-        out_primary_pose->t = pose_first->t;
-        *out_primary_error = error_first;
-        if (second_pose_valid) {
-            *out_alternative_pose = pose_second;
-            *out_alternative_error = error_second;
-            *out_unique_solution = 1;
+    if (first_candidate->valid
+        && (!second_candidate->valid || first_candidate->error <= second_candidate->error)) {
+        transfer_pose_ownership(out_primary_pose, &first_candidate->pose);
+        selection_result.primary_error = first_candidate->error;
+        if (second_candidate->valid) {
+            selection_result.alternative_pose = &second_candidate->pose;
+            selection_result.alternative_error = second_candidate->error;
+            selection_result.unique_solution = 1;
         } else {
-            *out_alternative_pose = pose_first;
-            *out_alternative_error = error_first;
-            *out_unique_solution = 0;
+            // Guard: uniquesol:false duplicates primary; source was emptied by ownership transfer.
+            selection_result.alternative_pose = out_primary_pose;
+            selection_result.alternative_error = first_candidate->error;
+            selection_result.unique_solution = 0;
         }
-        return;
+        return selection_result;
     }
 
-    if (second_pose_valid) {
-        out_primary_pose->R = pose_second->R;
-        out_primary_pose->t = pose_second->t;
-        *out_primary_error = error_second;
-        if (first_pose_valid) {
-            *out_alternative_pose = pose_first;
-            *out_alternative_error = error_first;
-            *out_unique_solution = 1;
+    if (second_candidate->valid) {
+        transfer_pose_ownership(out_primary_pose, &second_candidate->pose);
+        selection_result.primary_error = second_candidate->error;
+        if (first_candidate->valid) {
+            selection_result.alternative_pose = &first_candidate->pose;
+            selection_result.alternative_error = first_candidate->error;
+            selection_result.unique_solution = 1;
         }
-        return;
+        return selection_result;
     }
 
-    if (first_pose_valid) {
-        out_primary_pose->R = pose_first->R;
-        out_primary_pose->t = pose_first->t;
-        *out_primary_error = error_first;
+    if (first_candidate->valid) {
+        transfer_pose_ownership(out_primary_pose, &first_candidate->pose);
+        selection_result.primary_error = first_candidate->error;
     }
+
+    return selection_result;
 }
 
 static double estimate_tag_pose_with_solution(
@@ -757,65 +784,49 @@ static double estimate_tag_pose_with_solution(
     char *alternative_solution_json,
     int alternative_solution_json_size)
 {
-    double error_first = 0.0;
-    double error_second = 0.0;
-    apriltag_pose_t pose_first = { .R = NULL, .t = NULL };
-    apriltag_pose_t pose_second = { .R = NULL, .t = NULL };
-    apriltag_pose_t *alternative_pose = NULL;
-    double alternative_error = 0.0;
-    int unique_solution = 0;
-    int first_pose_valid = 0;
-    int second_pose_valid = 0;
-    double primary_error = 0.0;
+    pose_candidate_t first_candidate = {
+        .pose = { .R = NULL, .t = NULL },
+        .error = 0.0,
+        .valid = 0,
+    };
+    pose_candidate_t second_candidate = {
+        .pose = { .R = NULL, .t = NULL },
+        .error = 0.0,
+        .valid = 0,
+    };
+    pose_selection_result_t selection_result;
 
     apriltag_pose_clear(pose);
 
     estimate_tag_pose_orthogonal_iteration(
         detection_info,
-        &error_first,
-        &pose_first,
-        &error_second,
-        &pose_second,
+        &first_candidate.error,
+        &first_candidate.pose,
+        &second_candidate.error,
+        &second_candidate.pose,
         POSE_ORTHOGONAL_ITERATION_COUNT);
 
-    first_pose_valid = apriltag_pose_has_valid_matrices(&pose_first);
-    second_pose_valid = apriltag_pose_has_valid_matrices(&pose_second);
+    first_candidate.valid = apriltag_pose_has_valid_matrices(&first_candidate.pose);
+    second_candidate.valid = apriltag_pose_has_valid_matrices(&second_candidate.pose);
 
-    select_best_pose_and_alternative(
-        &pose_first,
-        error_first,
-        first_pose_valid,
-        &pose_second,
-        error_second,
-        second_pose_valid,
-        pose,
-        &primary_error,
-        &alternative_pose,
-        &alternative_error,
-        &unique_solution);
+    selection_result = select_best_pose_and_alternative(
+        &first_candidate,
+        &second_candidate,
+        pose);
 
-    if (alternative_pose != NULL) {
+    if (selection_result.alternative_pose != NULL) {
         append_alternative_solution_json(
             alternative_solution_json,
             alternative_solution_json_size,
-            alternative_pose,
-            alternative_error,
-            unique_solution);
+            selection_result.alternative_pose,
+            selection_result.alternative_error,
+            selection_result.unique_solution);
     }
 
-    // Destroy the pose matrices that were not transferred to the primary output.
-    if (pose->R != pose_first.R || pose->t != pose_first.t) {
-        apriltag_pose_destroy_matrices(&pose_first);
-    } else {
-        apriltag_pose_clear(&pose_first);
-    }
-    if (pose->R != pose_second.R || pose->t != pose_second.t) {
-        apriltag_pose_destroy_matrices(&pose_second);
-    } else {
-        apriltag_pose_clear(&pose_second);
-    }
+    apriltag_pose_destroy_matrices(&first_candidate.pose);
+    apriltag_pose_destroy_matrices(&second_candidate.pose);
 
-    return primary_error;
+    return selection_result.primary_error;
 }
 
 static double tag_size_meters_from_id(int tag_id)

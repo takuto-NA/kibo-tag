@@ -191,10 +191,10 @@ apriltag.detect(grayscaleImg, imgWidth, imgHeight)
 apriltag.set_tag_size(5, 0.1); // set the size of tag with id 5 to 0.1 meters
 ```
 
-- Use ```set_default_tag_size(size)``` to set the same size for every id in the **active** family (preferred when all printed tags share one size):
+- Use ```set_all_tag_sizes(size)``` to overwrite every id size in the **active** family (preferred when all printed tags share one size). This is last-write-wins versus ```set_tag_size```:
 
 ```javascript
-apriltag.set_default_tag_size(0.15); // meters; applies to all ids in the active family
+apriltag.set_all_tag_sizes(0.15); // meters; overwrites all ids in the active family
 ```
 
 - Use ```set_camera_info(fx, fy, cx, cy)``` to tell the detector the camera parameters used when computing the tag's pose. The camera parameters should be set before calling ```detect()```,  where

@@ -46,7 +46,7 @@ class Apriltag {
         this._set_pose_info = Module.cwrap('atagjs_set_pose_info', 'number', ['number', 'number', 'number', 'number']);
         this._set_img_buffer = Module.cwrap('atagjs_set_img_buffer', 'number', ['number', 'number', 'number']);
         this._atagjs_set_tag_size = Module.cwrap('atagjs_set_tag_size', 'number', ['number', 'number']);
-        this._atagjs_set_default_tag_size = Module.cwrap('atagjs_set_default_tag_size', 'number', ['number']);
+        this._atagjs_set_all_tag_sizes = Module.cwrap('atagjs_set_all_tag_sizes', 'number', ['number']);
         this._detect = Module.cwrap('atagjs_detect', 'number', []);
 
         const init_result = this._init();
@@ -129,10 +129,10 @@ class Apriltag {
         }
     }
 
-    set_default_tag_size(sizeMeters) {
-        const set_default_tag_size_result = this._atagjs_set_default_tag_size(sizeMeters);
-        if (set_default_tag_size_result !== 0) {
-            throw new Error('Apriltag set_default_tag_size failed.');
+    set_all_tag_sizes(sizeMeters) {
+        const set_all_tag_sizes_result = this._atagjs_set_all_tag_sizes(sizeMeters);
+        if (set_all_tag_sizes_result !== 0) {
+            throw new Error('Apriltag set_all_tag_sizes failed.');
         }
     }
 

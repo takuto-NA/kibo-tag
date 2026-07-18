@@ -99,7 +99,7 @@ async function applyDetectorSettingsToApriltagDetector() {
   const settings = readDetectorSettingsFromPage();
   currentDetectorSettings = settings;
   await window.apriltag.set_tag_family(settings.familyName, settings.bitsCorrected);
-  await window.apriltag.set_default_tag_size(settings.tagSizeMeters);
+  await window.apriltag.set_all_tag_sizes(settings.tagSizeMeters);
   updateDetectorStatus(
     `Detecting ${settings.familyName} with ${settings.bitsCorrected} corrected bit(s); tag size ${settings.tagSizeMeters} m; minimum decision margin ${settings.minimumDecisionMargin}.`);
 }

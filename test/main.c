@@ -55,11 +55,11 @@ int main(void) {
             NULL,
             atagjs_test_group_teardown),
         cmocka_unit_test_setup_teardown(
-            when_set_default_tag_size_updates_endpoint_ids_for_active_family_only,
+            when_set_all_tag_sizes_updates_endpoint_ids_for_active_family_only,
             NULL,
             atagjs_test_group_teardown),
         cmocka_unit_test_setup_teardown(
-            when_set_default_tag_size_called_before_init_returns_error,
+            when_set_all_tag_sizes_called_before_init_returns_error,
             NULL,
             atagjs_test_group_teardown),
         cmocka_unit_test_setup_teardown(

@@ -18,10 +18,10 @@ const atagjs_init = Module.cwrap('atagjs_init', 'number', []);
 const atagjs_destroy = Module.cwrap('atagjs_destroy', 'number', []);
 const atagjs_set_img_buffer = Module.cwrap('atagjs_set_img_buffer', 'number', ['number', 'number', 'number']);
 const atagjs_detect = Module.cwrap('atagjs_detect', 'number', []);
-const atagjs_set_default_tag_size = Module.cwrap('atagjs_set_default_tag_size', 'number', ['number']);
+const atagjs_set_all_tag_sizes = Module.cwrap('atagjs_set_all_tag_sizes', 'number', ['number']);
 
 assert.equal(atagjs_init(), 0);
-assert.equal(atagjs_set_default_tag_size(0.15), 0);
+assert.equal(atagjs_set_all_tag_sizes(0.15), 0);
 
 const imageWidth = 64;
 const imageHeight = 64;
