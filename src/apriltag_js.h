@@ -77,11 +77,14 @@ uint8_t *atagjs_set_img_buffer(int width, int height, int stride);
 int atagjs_set_tag_size(int tagid, double size);
 
 /**
- * @brief Set the same tag size for every id in the active family (meters)
+ * @brief Overwrite every tag id size in the active family (meters)
+ *
+ * Last-write-wins relative to atagjs_set_tag_size: calling this after a per-id
+ * set_tag_size clears that override for all ids in the active family.
  *
  * @return 0=success; -1 if detector is not initialized
  */
-int atagjs_set_default_tag_size(double size_meters);
+int atagjs_set_all_tag_sizes(double size_meters);
 
 /**
  * @brief Detect tags in image stored in the buffer

@@ -13,11 +13,11 @@ import {
   detectTagsInGrayscaleFrame,
   rgbaPixelsToGrayscale,
 } from './frame_pipeline.js';
+import { drawDetectionOverlays } from './detection_overlay.js';
 import {
-  drawDetectionOverlays,
   loadSavedDetectionIntoPage,
   saveNextDetectionToLocalStorage,
-} from './detection_overlay.js';
+} from './demo_storage.js';
 
 var detections = [];
 var imgSaveRequested = 0;

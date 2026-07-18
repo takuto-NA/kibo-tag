@@ -23,8 +23,8 @@ void when_tag_size_is_isolated_per_family(void **state);
 void when_detecting_noisy_aruco_frames_with_pose_enabled_returns_safe_json(void **state);
 void when_pose_detection_puts_size_under_pose_object(void **state);
 void when_init_default_max_detections_does_not_truncate_multiple_synthetic_tags(void **state);
-void when_set_default_tag_size_updates_endpoint_ids_for_active_family_only(void **state);
-void when_set_default_tag_size_called_before_init_returns_error(void **state);
+void when_set_all_tag_sizes_updates_endpoint_ids_for_active_family_only(void **state);
+void when_set_all_tag_sizes_called_before_init_returns_error(void **state);
 void when_both_families_return_core_detection_fields(void **state);
 
 #endif
