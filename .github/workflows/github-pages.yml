@@ -24,8 +24,8 @@ jobs:
       - name: Run tests
         run: docker run --rm -v "${{ github.workspace }}:/workspace" -w /workspace kibo-tag-dev make tests
 
-      - name: Build WASM
-        run: docker run --rm -v "${{ github.workspace }}:/workspace" -w /workspace kibo-tag-dev make apriltag_wasm.js
+      - name: Build WASM and run smoke detect
+        run: docker run --rm -v "${{ github.workspace }}:/workspace" -w /workspace kibo-tag-dev make wasm-smoke
 
   build-and-deploy:
     needs: test-and-wasm-build

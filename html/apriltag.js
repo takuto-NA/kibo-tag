@@ -1,13 +1,10 @@
 importScripts('apriltag_wasm.js');
 importScripts("https://unpkg.com/comlink/dist/umd/comlink.js");
 
-const BROWSER_DEMO_MAX_DETECTIONS = 32;
-const BROWSER_DEMO_RETURN_POSE = 1;
-const BROWSER_DEMO_RETURN_SOLUTIONS = 0;
-
 /**
  * Wrapper around apriltag_wasm: loads the WASM module and exposes detector calls.
- * Default family is tag36h11. Use set_tag_family for ArUco dictionaries.
+ * Defaults match atagjs_init() (max_detections=0, return_pose=1, return_solutions=0).
+ * Browser demo applies a conservative profile after ready; embedders should set options explicitly.
  */
 class Apriltag {
 
@@ -17,14 +14,15 @@ class Apriltag {
     constructor(onDetectorReadyCallback) {
         this.onDetectorReadyCallback = onDetectorReadyCallback;
 
+        // Match C atagjs_init defaults; demo bootstrap overrides after ready.
         this._opt = {
           quad_decimate: 2.0,
           quad_sigma: 0.0,
           nthreads: 1,
           refine_edges: 1,
-          max_detections: BROWSER_DEMO_MAX_DETECTIONS,
-          return_pose: BROWSER_DEMO_RETURN_POSE,
-          return_solutions: BROWSER_DEMO_RETURN_SOLUTIONS
+          max_detections: 0,
+          return_pose: 1,
+          return_solutions: 0
         };
 
         let _this = this;
@@ -48,6 +46,7 @@ class Apriltag {
         this._set_pose_info = Module.cwrap('atagjs_set_pose_info', 'number', ['number', 'number', 'number', 'number']);
         this._set_img_buffer = Module.cwrap('atagjs_set_img_buffer', 'number', ['number', 'number', 'number']);
         this._atagjs_set_tag_size = Module.cwrap('atagjs_set_tag_size', 'number', ['number', 'number']);
+        this._atagjs_set_default_tag_size = Module.cwrap('atagjs_set_default_tag_size', 'number', ['number']);
         this._detect = Module.cwrap('atagjs_detect', 'number', []);
 
         const init_result = this._init();
@@ -127,6 +126,13 @@ class Apriltag {
         const set_tag_size_result = this._atagjs_set_tag_size(tagid, size);
         if (set_tag_size_result !== 0) {
             throw new Error('Invalid tag id for set_tag_size.');
+        }
+    }
+
+    set_default_tag_size(sizeMeters) {
+        const set_default_tag_size_result = this._atagjs_set_default_tag_size(sizeMeters);
+        if (set_default_tag_size_result !== 0) {
+            throw new Error('Apriltag set_default_tag_size failed.');
         }
     }
 

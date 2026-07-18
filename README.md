@@ -139,7 +139,9 @@ apriltag.detect(grayscaleImg, imgWidth, imgHeight)
 > [
 > {
 >  "id": 151,
->  "size": 0.1,
+>  "family": "tag36h11",
+>  "hamming": 0,
+>  "decision_margin": 82.40,
 >  "corners": [
 >    { "x": 777.52, "y": 735.39},
 >    { "x": 766.05, "y": 546.94},
@@ -148,6 +150,7 @@ apriltag.detect(grayscaleImg, imgWidth, imgHeight)
 >  ],
 >  "center": { "x": 684.52, "y": 666.51 },
 >  "pose": {
+>    "size": 0.1,
 >    "R": [
 >      [ 0.91576, -0.385813, 0.111941 ],
 >      [ -0.335306, -0.887549, -0.315954 ],
@@ -170,10 +173,11 @@ apriltag.detect(grayscaleImg, imgWidth, imgHeight)
 > Where:
 >
 > * *id* is the tag id,
-> * *size* is the tag size in meters (based on the tag id)
+> * *family*, *hamming*, and *decision_margin* describe the decode result
 > * *corners* are x and y corners of the tag (in fractional pixel coordinates)
 > * *center* is the center of the tag (in fractional pixel coordinates)
 > * *pose*: pose estimation, only when ```return_pose = 1``` and the solver succeeds; otherwise corners and ```decision_margin``` are still returned without ```pose```
+>   * *size* is the tag size in meters used for pose (based on the tag id / active family)
 >   * *R* is the rotation matrix (**column major**)
 >   * *t* is the translation
 >   * *e* is the object-space error of the pose estimation
@@ -185,6 +189,12 @@ apriltag.detect(grayscaleImg, imgWidth, imgHeight)
 
 ```javascript
 apriltag.set_tag_size(5, 0.1); // set the size of tag with id 5 to 0.1 meters
+```
+
+- Use ```set_default_tag_size(size)``` to set the same size for every id in the **active** family (preferred when all printed tags share one size):
+
+```javascript
+apriltag.set_default_tag_size(0.15); // meters; applies to all ids in the active family
 ```
 
 - Use ```set_camera_info(fx, fy, cx, cy)``` to tell the detector the camera parameters used when computing the tag's pose. The camera parameters should be set before calling ```detect()```,  where
@@ -252,24 +262,12 @@ See the full camera demo in the [html](html) folder ([video_process.js](html/vid
 
 ### Defaults
 
-The [Apriltag](html/apriltag.js) wrapper applies detector options after WASM init. The **browser camera demo** uses a conservative profile to limit false positives and WASM load:
+The [Apriltag](html/apriltag.js) wrapper matches C ```atagjs_init()``` defaults after WASM init:
 
-```javascript
-const BROWSER_DEMO_MAX_DETECTIONS = 32;
-const BROWSER_DEMO_RETURN_POSE = 1;
-const BROWSER_DEMO_RETURN_SOLUTIONS = 0;
+- `max_detections = 0` (return all)
+- `return_pose = 1`
+- `return_solutions = 0`
 
-this._opt = {
-  quad_decimate: 2.0,
-  quad_sigma: 0.0,
-  nthreads: 1,
-  refine_edges: 1,
-  max_detections: BROWSER_DEMO_MAX_DETECTIONS,
-  return_pose: BROWSER_DEMO_RETURN_POSE,
-  return_solutions: BROWSER_DEMO_RETURN_SOLUTIONS
-};
-```
+The **browser camera demo** (`html/detector_settings.js`) then applies a conservative profile after the detector is ready (`max_detections = 32`, pose on, alternative solutions off). Embedders that use `apriltag.js` directly do **not** get those demo limits unless they call the setters themselves.
 
-Use ```set_max_detections```, ```set_return_pose```, and ```set_return_solutions``` to override at runtime. For example, ```set_max_detections(0)``` returns all detections and ```set_return_solutions(1)``` includes alternative pose solutions in JSON (heavier).
-
-The native C API defaults to ```return_pose = 1``` and ```return_solutions = 0``` on ```atagjs_init()``` until options are changed.
+Use ```set_max_detections```, ```set_return_pose```, and ```set_return_solutions``` to override at runtime. For example, ```set_return_solutions(1)``` includes alternative pose solutions in JSON (heavier).

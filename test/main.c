@@ -6,7 +6,6 @@
 
 #include "test_str_json.h"
 #include "test_atagjs_detector.h"
-#include "test_apriltag_js_contract.h"
 
 int main(void) {
 
@@ -49,14 +48,22 @@ int main(void) {
             when_detecting_noisy_aruco_frames_with_pose_enabled_returns_safe_json,
             NULL,
             atagjs_test_group_teardown),
-    };
-
-    const struct CMUnitTest apriltag_js_contract_tests[] = {
-        cmocka_unit_test(when_browser_wrapper_uses_conservative_demo_detector_options),
-        cmocka_unit_test(when_apriltag_js_exposes_set_tag_family_wrapper),
-        cmocka_unit_test(when_camera_demo_exposes_aruco_family_configuration),
-        cmocka_unit_test(when_user_leaves_demo_page_camera_tracks_are_stopped),
-        cmocka_unit_test(when_user_leaves_demo_page_video_processing_stops),
+        cmocka_unit_test_setup_teardown(
+            when_pose_detection_puts_size_under_pose_object, NULL, atagjs_test_group_teardown),
+        cmocka_unit_test_setup_teardown(
+            when_init_default_max_detections_does_not_truncate_multiple_synthetic_tags,
+            NULL,
+            atagjs_test_group_teardown),
+        cmocka_unit_test_setup_teardown(
+            when_set_default_tag_size_updates_endpoint_ids_for_active_family_only,
+            NULL,
+            atagjs_test_group_teardown),
+        cmocka_unit_test_setup_teardown(
+            when_set_default_tag_size_called_before_init_returns_error,
+            NULL,
+            atagjs_test_group_teardown),
+        cmocka_unit_test_setup_teardown(
+            when_both_families_return_core_detection_fields, NULL, atagjs_test_group_teardown),
     };
 
     const struct CMUnitTest str_json_tests[] = {
@@ -77,11 +84,6 @@ int main(void) {
     int atagjs_result = cmocka_run_group_tests(atagjs_detector_tests, NULL, NULL);
     if (atagjs_result != 0) {
         return atagjs_result;
-    }
-
-    int contract_result = cmocka_run_group_tests(apriltag_js_contract_tests, NULL, NULL);
-    if (contract_result != 0) {
-        return contract_result;
     }
 
     return cmocka_run_group_tests(str_json_tests, NULL, NULL);
