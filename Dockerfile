@@ -10,7 +10,7 @@ FROM emscripten/emsdk:3.1.50
 USER root
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libcmocka-dev \
+    && apt-get install -y --no-install-recommends libcmocka-dev nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace

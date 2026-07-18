@@ -77,6 +77,13 @@ uint8_t *atagjs_set_img_buffer(int width, int height, int stride);
 int atagjs_set_tag_size(int tagid, double size);
 
 /**
+ * @brief Set the same tag size for every id in the active family (meters)
+ *
+ * @return 0=success; -1 if detector is not initialized
+ */
+int atagjs_set_default_tag_size(double size_meters);
+
+/**
  * @brief Detect tags in image stored in the buffer
  */
 t_str_json *atagjs_detect();

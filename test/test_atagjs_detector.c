@@ -479,3 +479,221 @@ void when_detecting_noisy_aruco_frames_with_pose_enabled_returns_safe_json(void 
         assert_detect_returns_safe_json(atagjs_detect());
     }
 }
+
+static void assert_detection_json_has_pose_nested_size_contract(t_str_json *detection_json)
+{
+    const char *pose_key = NULL;
+    const char *size_after_pose = NULL;
+
+    assert_non_null(detection_json);
+    assert_non_null(detection_json->str);
+    pose_key = strstr(detection_json->str, "\"pose\"");
+    assert_non_null(pose_key);
+    size_after_pose = strstr(pose_key, "\"size\"");
+    assert_non_null(size_after_pose);
+    assert_non_null(strstr(pose_key, "\"R\""));
+    assert_non_null(strstr(pose_key, "\"t\""));
+}
+
+static void assert_detection_json_has_core_detection_fields(t_str_json *detection_json)
+{
+    assert_non_null(detection_json);
+    assert_non_null(detection_json->str);
+    assert_non_null(strstr(detection_json->str, "\"id\":"));
+    assert_non_null(strstr(detection_json->str, "\"family\":"));
+    assert_non_null(strstr(detection_json->str, "\"hamming\":"));
+    assert_non_null(strstr(detection_json->str, "\"decision_margin\":"));
+    assert_non_null(strstr(detection_json->str, "\"corners\":"));
+    assert_non_null(strstr(detection_json->str, "\"center\":"));
+}
+
+void when_pose_detection_puts_size_under_pose_object(void **state)
+{
+    const double expected_tag_size_meters = 0.33;
+    apriltag_family_t *tag36h11_family = NULL;
+    char expected_pose_size_fragment[64];
+    (void)state;
+
+    assert_int_equal(atagjs_init(), 0);
+    assert_int_equal(
+        atagjs_set_detector_options(1.0f, 0.0f, 1, 1, 0, 1, 0),
+        0);
+    assert_int_equal(atagjs_set_tag_size(TEST_TAG36H11_TAG_ID, expected_tag_size_meters), 0);
+
+    tag36h11_family = tag36h11_create();
+    render_tag_into_detector_buffer(tag36h11_family, TEST_TAG36H11_TAG_ID);
+    tag36h11_destroy(tag36h11_family);
+
+    t_str_json *detection_json = atagjs_detect();
+    assert_detection_json_has_core_detection_fields(detection_json);
+    assert_detection_json_has_pose_nested_size_contract(detection_json);
+
+    snprintf(
+        expected_pose_size_fragment,
+        sizeof(expected_pose_size_fragment),
+        "\"pose\": { \"size\":%.2f",
+        expected_tag_size_meters);
+    assert_non_null(strstr(detection_json->str, expected_pose_size_fragment));
+}
+
+void when_init_default_max_detections_does_not_truncate_multiple_synthetic_tags(void **state)
+{
+    const int first_tag_id = 0;
+    const int second_tag_id = 1;
+    apriltag_family_t *tag36h11_family = NULL;
+    image_u8_t *first_tag_image = NULL;
+    image_u8_t *second_tag_image = NULL;
+    uint8_t *image_buffer = NULL;
+    int canvas_width = 0;
+    int canvas_height = 0;
+    int tag_width = 0;
+    int tag_height = 0;
+    (void)state;
+
+    assert_int_equal(atagjs_init(), 0);
+    // Guard: leave max_detections at init default (0 = return all). Only tune decimate for synthetic tags.
+    assert_int_equal(
+        atagjs_set_detector_options(1.0f, 0.0f, 1, 1, 0, 0, 0),
+        0);
+
+    tag36h11_family = tag36h11_create();
+    assert_non_null(tag36h11_family);
+    first_tag_image = apriltag_to_image(tag36h11_family, first_tag_id);
+    second_tag_image = apriltag_to_image(tag36h11_family, second_tag_id);
+    assert_non_null(first_tag_image);
+    assert_non_null(second_tag_image);
+    assert_int_equal(first_tag_image->width, second_tag_image->width);
+    assert_int_equal(first_tag_image->height, second_tag_image->height);
+
+    tag_width = first_tag_image->width;
+    tag_height = first_tag_image->height;
+    canvas_width = (tag_width * 2) + (3 * TEST_TAG_RENDER_BORDER_PIXELS);
+    canvas_height = tag_height + (2 * TEST_TAG_RENDER_BORDER_PIXELS);
+    image_buffer = atagjs_set_img_buffer(canvas_width, canvas_height, canvas_width);
+    assert_non_null(image_buffer);
+    memset(image_buffer, 255, (size_t)canvas_width * (size_t)canvas_height);
+
+    for (int row = 0; row < tag_height; row++) {
+        uint8_t *first_destination_row = image_buffer
+            + ((row + TEST_TAG_RENDER_BORDER_PIXELS) * canvas_width)
+            + TEST_TAG_RENDER_BORDER_PIXELS;
+        uint8_t *second_destination_row = image_buffer
+            + ((row + TEST_TAG_RENDER_BORDER_PIXELS) * canvas_width)
+            + (2 * TEST_TAG_RENDER_BORDER_PIXELS)
+            + tag_width;
+        memcpy(
+            first_destination_row,
+            first_tag_image->buf + (row * first_tag_image->stride),
+            (size_t)tag_width);
+        memcpy(
+            second_destination_row,
+            second_tag_image->buf + (row * second_tag_image->stride),
+            (size_t)tag_width);
+    }
+
+    image_u8_destroy(first_tag_image);
+    image_u8_destroy(second_tag_image);
+    tag36h11_destroy(tag36h11_family);
+
+    t_str_json *detection_json_all = atagjs_detect();
+    assert_detection_json_contains_tag_id(detection_json_all, first_tag_id);
+    assert_detection_json_contains_tag_id(detection_json_all, second_tag_id);
+
+    assert_int_equal(
+        atagjs_set_detector_options(1.0f, 0.0f, 1, 1, 1, 0, 0),
+        0);
+    t_str_json *detection_json_truncated = atagjs_detect();
+    assert_detection_json_contains_tag_id(detection_json_truncated, first_tag_id);
+    assert_detection_json_does_not_contain_tag_id(detection_json_truncated, second_tag_id);
+}
+
+void when_set_default_tag_size_updates_endpoint_ids_for_active_family_only(void **state)
+{
+    const double aruco_default_size_meters = 0.55;
+    const double tag36h11_default_size_meters = 0.66;
+    const int aruco_first_tag_id = 0;
+    const int aruco_last_tag_id = ARUCO_4X4_100_TAG_COUNT - 1;
+    apriltag_family_t *aruco_family = NULL;
+    apriltag_family_t *tag36h11_family = NULL;
+    char expected_aruco_size_fragment[64];
+    char expected_tag36h11_size_fragment[64];
+    (void)state;
+
+    assert_int_equal(atagjs_init(), 0);
+    assert_int_equal(
+        atagjs_set_detector_options(1.0f, 0.0f, 1, 1, 0, 1, 0),
+        0);
+
+    assert_int_equal(atagjs_set_tag_family("DICT_4X4_100", 1), 0);
+    assert_int_equal(atagjs_set_default_tag_size(aruco_default_size_meters), 0);
+
+    snprintf(
+        expected_aruco_size_fragment,
+        sizeof(expected_aruco_size_fragment),
+        "\"pose\": { \"size\":%.2f",
+        aruco_default_size_meters);
+
+    aruco_family = tagAruco4x4_100_create();
+    render_tag_into_detector_buffer(aruco_family, (uint32_t)aruco_first_tag_id);
+    t_str_json *aruco_first_detection_json = atagjs_detect();
+    assert_non_null(strstr(aruco_first_detection_json->str, expected_aruco_size_fragment));
+
+    render_tag_into_detector_buffer(aruco_family, (uint32_t)aruco_last_tag_id);
+    t_str_json *aruco_last_detection_json = atagjs_detect();
+    assert_non_null(strstr(aruco_last_detection_json->str, expected_aruco_size_fragment));
+    tagAruco4x4_100_destroy(aruco_family);
+
+    assert_int_equal(atagjs_set_tag_family("tag36h11", 1), 0);
+    assert_int_equal(atagjs_set_default_tag_size(tag36h11_default_size_meters), 0);
+    snprintf(
+        expected_tag36h11_size_fragment,
+        sizeof(expected_tag36h11_size_fragment),
+        "\"pose\": { \"size\":%.2f",
+        tag36h11_default_size_meters);
+
+    tag36h11_family = tag36h11_create();
+    render_tag_into_detector_buffer(tag36h11_family, TEST_TAG36H11_TAG_ID);
+    tag36h11_destroy(tag36h11_family);
+    t_str_json *tag36h11_detection_json = atagjs_detect();
+    assert_non_null(strstr(tag36h11_detection_json->str, expected_tag36h11_size_fragment));
+    assert_null(strstr(tag36h11_detection_json->str, expected_aruco_size_fragment));
+
+    assert_int_equal(atagjs_set_tag_family("DICT_4X4_100", 1), 0);
+    aruco_family = tagAruco4x4_100_create();
+    render_tag_into_detector_buffer(aruco_family, (uint32_t)aruco_first_tag_id);
+    tagAruco4x4_100_destroy(aruco_family);
+    t_str_json *aruco_after_switch_json = atagjs_detect();
+    assert_non_null(strstr(aruco_after_switch_json->str, expected_aruco_size_fragment));
+}
+
+void when_set_default_tag_size_called_before_init_returns_error(void **state)
+{
+    (void)state;
+    assert_int_equal(atagjs_set_default_tag_size(0.2), -1);
+}
+
+void when_both_families_return_core_detection_fields(void **state)
+{
+    apriltag_family_t *tag36h11_family = NULL;
+    apriltag_family_t *aruco_family = NULL;
+    (void)state;
+
+    assert_int_equal(atagjs_init(), 0);
+    configure_detector_for_synthetic_tag_images();
+
+    tag36h11_family = tag36h11_create();
+    render_tag_into_detector_buffer(tag36h11_family, TEST_TAG36H11_TAG_ID);
+    tag36h11_destroy(tag36h11_family);
+    t_str_json *tag36h11_detection_json = atagjs_detect();
+    assert_detection_json_has_core_detection_fields(tag36h11_detection_json);
+    assert_detection_json_contains_tag_id(tag36h11_detection_json, TEST_TAG36H11_TAG_ID);
+
+    assert_int_equal(atagjs_set_tag_family("DICT_4X4_100", 1), 0);
+    aruco_family = tagAruco4x4_100_create();
+    render_tag_into_detector_buffer(aruco_family, TEST_ARUCO_TAG_ID);
+    tagAruco4x4_100_destroy(aruco_family);
+    t_str_json *aruco_detection_json = atagjs_detect();
+    assert_detection_json_has_core_detection_fields(aruco_detection_json);
+    assert_detection_json_contains_tag_id(aruco_detection_json, TEST_ARUCO_TAG_ID);
+    assert_non_null(strstr(aruco_detection_json->str, EXPECTED_ARUCO_FAMILY_NAME));
+}
