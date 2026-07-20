@@ -1,0 +1,19 @@
+{
+  "name": "kibo-tag",
+  "private": true,
+  "type": "module",
+  "description": "Dev tooling for browser demo characterization and performance regression",
+  "scripts": {
+    "test:generator": "node test/fixtures/generate-fake-camera.test.mjs",
+    "test:browser": "playwright test",
+    "generate:fake-camera": "node scripts/generate-fake-camera.mjs",
+    "perf:reproduce": "node scripts/run-symptom-reproduction.mjs",
+    "perf:compare": "node scripts/run-perf-compare.mjs",
+    "perf:root-cause": "node scripts/run-root-cause-ab.mjs",
+    "perf:p0-overhead": "node scripts/run-p0-overhead.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.54.2",
+    "playwright": "1.54.2"
+  }
+}

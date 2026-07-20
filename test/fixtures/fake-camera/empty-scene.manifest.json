@@ -1,0 +1,354 @@
+{
+  "backgroundLuma": 200,
+  "blurModel": {
+    "kernelPx": 0,
+    "kind": "none"
+  },
+  "cornerTrajectory": [
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 0,
+      "mediaTimestampSeconds": 0.0
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 1,
+      "mediaTimestampSeconds": 0.03333333333333333
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 2,
+      "mediaTimestampSeconds": 0.06666666666666667
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 3,
+      "mediaTimestampSeconds": 0.1
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 4,
+      "mediaTimestampSeconds": 0.13333333333333333
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 5,
+      "mediaTimestampSeconds": 0.16666666666666666
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 6,
+      "mediaTimestampSeconds": 0.2
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 7,
+      "mediaTimestampSeconds": 0.23333333333333334
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 8,
+      "mediaTimestampSeconds": 0.26666666666666666
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 9,
+      "mediaTimestampSeconds": 0.3
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 10,
+      "mediaTimestampSeconds": 0.3333333333333333
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 11,
+      "mediaTimestampSeconds": 0.36666666666666664
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 12,
+      "mediaTimestampSeconds": 0.4
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 13,
+      "mediaTimestampSeconds": 0.43333333333333335
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 14,
+      "mediaTimestampSeconds": 0.4666666666666667
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 15,
+      "mediaTimestampSeconds": 0.5
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 16,
+      "mediaTimestampSeconds": 0.5333333333333333
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 17,
+      "mediaTimestampSeconds": 0.5666666666666667
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 18,
+      "mediaTimestampSeconds": 0.6
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 19,
+      "mediaTimestampSeconds": 0.6333333333333333
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 20,
+      "mediaTimestampSeconds": 0.6666666666666666
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 21,
+      "mediaTimestampSeconds": 0.7
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 22,
+      "mediaTimestampSeconds": 0.7333333333333333
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 23,
+      "mediaTimestampSeconds": 0.7666666666666667
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 24,
+      "mediaTimestampSeconds": 0.8
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 25,
+      "mediaTimestampSeconds": 0.8333333333333334
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 26,
+      "mediaTimestampSeconds": 0.8666666666666667
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 27,
+      "mediaTimestampSeconds": 0.9
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 28,
+      "mediaTimestampSeconds": 0.9333333333333333
+    },
+    {
+      "center": [
+        640,
+        360
+      ],
+      "corners": [],
+      "expectedFamily": "tag36h11",
+      "expectedTagIds": [],
+      "frameIndex": 29,
+      "mediaTimestampSeconds": 0.9666666666666667
+    }
+  ],
+  "expectedFamily": "tag36h11",
+  "expectedTagIds": [],
+  "frameCount": 30,
+  "frameHeight": 720,
+  "frameWidth": 1280,
+  "framesPerSecond": 30,
+  "generatorVersion": "1",
+  "motion": "static",
+  "scene": "empty",
+  "seed": 3,
+  "sourceJpeg": null,
+  "sourceJpegSha256": null,
+  "tagPixelSize": 240,
+  "y4mPath": "C:/Users/chobb/Documents/git/kibo-tag/test/fixtures/fake-camera/empty-scene.y4m",
+  "y4mSha256": "1f2aa602b663674e7c3ece89ac06f4b5377c2b4f9d31fe99c094958fc97be32e"
+}

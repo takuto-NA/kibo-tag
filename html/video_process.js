@@ -18,10 +18,26 @@ import {
   loadSavedDetectionIntoPage,
   saveNextDetectionToLocalStorage,
 } from './demo_storage.js';
+import { installPipelineMetricsOnWindow } from './pipeline_metrics.js';
+
+const SCHEDULING_MODE_DECOUPLED = 'decoupled';
+const SCHEDULING_MODE_GATED = 'gated';
 
 var detections = [];
 var imgSaveRequested = 0;
 var videoProcessingActive = true;
+const pipelineMetrics = installPipelineMetricsOnWindow(window);
+let latestPresentedMediaTimeSeconds = 0;
+let sourceFrameCallbackHandle = null;
+let detectInFlight = false;
+
+function getSchedulingMode() {
+  // Production default is decoupled. Tests may force gated to re-capture P0 symptom RED.
+  if (window.__kiboPipelineSchedulingMode === SCHEDULING_MODE_GATED) {
+    return SCHEDULING_MODE_GATED;
+  }
+  return SCHEDULING_MODE_DECOUPLED;
+}
 
 function registerVideoProcessingReleaseOnPageExit() {
   window.addEventListener('pagehide', function(pageHideEvent) {
@@ -30,6 +46,10 @@ function registerVideoProcessingReleaseOnPageExit() {
       return;
     }
     videoProcessingActive = false;
+    if (sourceFrameCallbackHandle !== null && typeof video.cancelVideoFrameCallback === 'function') {
+      video.cancelVideoFrameCallback(sourceFrameCallbackHandle);
+      sourceFrameCallbackHandle = null;
+    }
   });
 }
 
@@ -80,6 +100,23 @@ function registerCameraInfoChangeListener() {
   });
 }
 
+function registerSourceFramePresentationObserver() {
+  // Guard: requestVideoFrameCallback is required for source-video FPS; fallback keeps detect loop alive.
+  if (typeof video.requestVideoFrameCallback !== 'function') {
+    return;
+  }
+
+  const onPresentedFrame = (_now, metadata) => {
+    if (!videoProcessingActive) {
+      return;
+    }
+    latestPresentedMediaTimeSeconds = metadata.mediaTime;
+    pipelineMetrics.markSourceVideoFramePresented(metadata.mediaTime, performance.now());
+    sourceFrameCallbackHandle = video.requestVideoFrameCallback(onPresentedFrame);
+  };
+  sourceFrameCallbackHandle = video.requestVideoFrameCallback(onPresentedFrame);
+}
+
 async function init() {
   const Apriltag = Comlink.wrap(new Worker("apriltag.js"));
   let resolveDetectorReady;
@@ -94,7 +131,57 @@ async function init() {
   await initializeDetectorSettingsForDemo(() => {
     detections = [];
   });
+  registerSourceFramePresentationObserver();
   window.requestAnimationFrame(process_frame);
+}
+
+async function runDetectionForFrame(grayscalePixels, frameWidth, frameHeight, scheduleNextFrameAfterDetect) {
+  const currentSettings = getCurrentDetectorSettings();
+  pipelineMetrics.markFrameSubmitted();
+  const detectStartedAtMilliseconds = performance.now();
+  try {
+    const nextDetections = await detectTagsInGrayscaleFrame(
+      apriltag,
+      grayscalePixels,
+      frameWidth,
+      frameHeight,
+      currentSettings.minimumDecisionMargin);
+    const detectWallMilliseconds = performance.now() - detectStartedAtMilliseconds;
+    pipelineMetrics.markStageDuration('detectWallMilliseconds', detectWallMilliseconds);
+    pipelineMetrics.markDetectionCompleted({
+      tagCount: nextDetections.length,
+      detectWallMilliseconds,
+      nowMilliseconds: performance.now(),
+    });
+    detections = nextDetections;
+    window.__kiboLastDetectionIds = detections.map((detection) => detection.id);
+    window.__kiboLastDetections = detections;
+
+    if (imgSaveRequested && detections.length > 0) {
+      const ctx = canvas.getContext('2d');
+      saveNextDetectionToLocalStorage(ctx, detections, () => {
+        buttonToggle();
+        loadSavedDetectionIntoPage('saved_det');
+      });
+    }
+  } catch (detectionError) {
+    console.log(detectionError);
+    detections = [];
+    pipelineMetrics.markFrameDropped();
+  } finally {
+    detectInFlight = false;
+    if (scheduleNextFrameAfterDetect && videoProcessingActive) {
+      window.requestAnimationFrame(process_frame);
+    }
+  }
+}
+
+function presentOverlayOnly(ctx) {
+  const overlayStartedAtMilliseconds = performance.now();
+  drawDetectionOverlays(ctx, detections);
+  pipelineMetrics.markStageDuration(
+    'overlayMilliseconds',
+    performance.now() - overlayStartedAtMilliseconds);
 }
 
 async function process_frame() {
@@ -102,55 +189,104 @@ async function process_frame() {
     return;
   }
 
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
+  const schedulingMode = getSchedulingMode();
+  // Guard: assigning canvas.width/height clears the bitmap; only resize on dimension changes.
+  if (canvas.width !== video.videoWidth) {
+    canvas.width = video.videoWidth;
+  }
+  if (canvas.height !== video.videoHeight) {
+    canvas.height = video.videoHeight;
+  }
   let ctx = canvas.getContext("2d");
 
-  let imageData;
+  const drawReadbackStartedAtMilliseconds = performance.now();
   try {
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
   } catch (err) {
     console.log("Failed to get video frame. Video not started ?");
     setTimeout(process_frame, 500);
     return;
   }
 
+  if (schedulingMode === SCHEDULING_MODE_DECOUPLED) {
+    // While detect is in flight, keep canvas-only presentation: drawImage + overlay only
+    // (no getImageData/grayscale). The <video> element stays display:none.
+    if (detectInFlight || isDetectorSettingsApplyInProgress()) {
+      pipelineMetrics.markStageDuration(
+        'drawReadbackMilliseconds',
+        performance.now() - drawReadbackStartedAtMilliseconds);
+      pipelineMetrics.markCanvasFramePresented(performance.now());
+      presentOverlayOnly(ctx);
+      if (detectInFlight) {
+        pipelineMetrics.markDetectInFlightSkip();
+      }
+      window.__kiboPresentationLoopCount = (window.__kiboPresentationLoopCount || 0) + 1;
+      window.requestAnimationFrame(process_frame);
+      return;
+    }
+  }
+
+  let imageData;
+  try {
+    imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+  } catch (err) {
+    console.log("Failed to get video frame. Video not started ?");
+    setTimeout(process_frame, 500);
+    return;
+  }
+  pipelineMetrics.markStageDuration(
+    'drawReadbackMilliseconds',
+    performance.now() - drawReadbackStartedAtMilliseconds);
+  // Canvas is the user-visible presentation surface (video element is display:none).
+  pipelineMetrics.markCanvasFramePresented(performance.now());
+  window.__kiboPresentationLoopCount = (window.__kiboPresentationLoopCount || 0) + 1;
+
+  const rootCauseExperimentsEnabled = window.__kiboEnableRootCauseExperiments === true;
+  // Guard: root-cause A/B hooks stay off unless the experiment harness opts in.
+  if (rootCauseExperimentsEnabled && window.__kiboExperimentSkipGrayscaleAndDetect) {
+    window.requestAnimationFrame(process_frame);
+    return;
+  }
+
+  const grayscaleStartedAtMilliseconds = performance.now();
   const grayscalePixels = rgbaPixelsToGrayscale(
     imageData.data,
     ctx.canvas.width * ctx.canvas.height);
-  ctx.putImageData(imageData, 0, 0);
+  pipelineMetrics.markStageDuration(
+    'grayscaleMilliseconds',
+    performance.now() - grayscaleStartedAtMilliseconds);
 
   if (isDetectorSettingsApplyInProgress()) {
     window.requestAnimationFrame(process_frame);
     return;
   }
 
-  drawDetectionOverlays(ctx, detections);
+  presentOverlayOnly(ctx);
 
-  try {
-    const currentSettings = getCurrentDetectorSettings();
-    detections = await detectTagsInGrayscaleFrame(
-      apriltag,
-      grayscalePixels,
-      ctx.canvas.width,
-      ctx.canvas.height,
-      currentSettings.minimumDecisionMargin);
-  } catch (detectionError) {
-    console.log(detectionError);
-    detections = [];
+  if (rootCauseExperimentsEnabled && window.__kiboExperimentSkipDetect) {
     window.requestAnimationFrame(process_frame);
     return;
   }
 
-  if (imgSaveRequested && detections.length > 0) {
-    saveNextDetectionToLocalStorage(ctx, detections, () => {
-      buttonToggle();
-      loadSavedDetectionIntoPage('saved_det');
-    });
+  if (schedulingMode === SCHEDULING_MODE_GATED) {
+    // P0 / baseline behavior: next presentation waits for detect completion.
+    detectInFlight = true;
+    await runDetectionForFrame(
+      grayscalePixels,
+      ctx.canvas.width,
+      ctx.canvas.height,
+      true);
+    return;
   }
 
+  // Decoupled latest-frame scheduling: next presentation is not gated on detect completion.
   window.requestAnimationFrame(process_frame);
+  detectInFlight = true;
+  runDetectionForFrame(
+    grayscalePixels,
+    ctx.canvas.width,
+    ctx.canvas.height,
+    false);
 }
 
 var button = document.getElementById('req_save');
@@ -159,13 +295,14 @@ button.addEventListener('click', function() {
 });
 
 function buttonToggle() {
-  if (imgSaveRequested == 0) {
-    button.innerHTML = "Saving next detection... (press to cancel)";
+  if (!imgSaveRequested) {
+    button.innerHTML = 'Saving next detection...';
     imgSaveRequested = 1;
-    button.classList.add("active");
-  } else {
-    button.innerHTML = "Save next detection (local storage)";
-    imgSaveRequested = 0;
-    button.classList.remove("active");
+    return;
   }
+  button.innerHTML = 'Save next detection (local storage)';
+  imgSaveRequested = 0;
 }
+
+window.__kiboLatestPresentedMediaTimeSeconds = () => latestPresentedMediaTimeSeconds;
+window.__kiboGetPipelineSchedulingMode = getSchedulingMode;

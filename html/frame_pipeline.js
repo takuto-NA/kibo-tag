@@ -5,14 +5,11 @@
 import { filterDetectionsByDecisionMargin } from './detector_settings_logic.mjs';
 
 export function rgbaPixelsToGrayscale(imageDataPixels, pixelCount) {
+  // Detector-only luma buffer: do not mutate the source RGBA (canvas keeps color).
   const grayscalePixels = new Uint8Array(pixelCount);
   for (let rgbaIndex = 0, grayIndex = 0; rgbaIndex < imageDataPixels.length; rgbaIndex += 4, grayIndex++) {
-    const grayscale = Math.round(
+    grayscalePixels[grayIndex] = Math.round(
       (imageDataPixels[rgbaIndex] + imageDataPixels[rgbaIndex + 1] + imageDataPixels[rgbaIndex + 2]) / 3);
-    grayscalePixels[grayIndex] = grayscale;
-    imageDataPixels[rgbaIndex] = grayscale;
-    imageDataPixels[rgbaIndex + 1] = grayscale;
-    imageDataPixels[rgbaIndex + 2] = grayscale;
   }
   return grayscalePixels;
 }
