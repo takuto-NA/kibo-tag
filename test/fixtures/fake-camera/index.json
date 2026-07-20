@@ -1,0 +1,20 @@
+{
+  "generatorVersion": "1",
+  "fixtures": {
+    "static-tag36h11-0": {
+      "y4m": "test/fixtures/fake-camera/static-tag36h11-0.y4m",
+      "manifest": "test/fixtures/fake-camera/static-tag36h11-0.manifest.json",
+      "y4mSha256": "be511fd4b1612a621d2d59e831bb7dac394535e3ac298052a9516a1a8efc6c05"
+    },
+    "moving-tag36h11-0": {
+      "y4m": "test/fixtures/fake-camera/moving-tag36h11-0.y4m",
+      "manifest": "test/fixtures/fake-camera/moving-tag36h11-0.manifest.json",
+      "y4mSha256": "bc597a1e2c5668445c641d9bb1b2e9e25d8ba54c94c2fedc7383491f9701dd8c"
+    },
+    "empty-scene": {
+      "y4m": "test/fixtures/fake-camera/empty-scene.y4m",
+      "manifest": "test/fixtures/fake-camera/empty-scene.manifest.json",
+      "y4mSha256": "1f2aa602b663674e7c3ece89ac06f4b5377c2b4f9d31fe99c094958fc97be32e"
+    }
+  }
+}
