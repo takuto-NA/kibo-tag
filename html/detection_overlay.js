@@ -19,3 +19,29 @@ export function drawDetectionOverlays(canvasContext, detections) {
     canvasContext.stroke();
   });
 }
+
+export function drawFailedQuadOverlays(canvasContext, failedQuads) {
+  if (!Array.isArray(failedQuads) || failedQuads.length === 0) {
+    return;
+  }
+
+  canvasContext.save();
+  canvasContext.setLineDash([8, 6]);
+  canvasContext.lineWidth = 2;
+  canvasContext.strokeStyle = 'rgba(255, 200, 0, 0.9)';
+  failedQuads.forEach((failedQuad) => {
+    canvasContext.beginPath();
+    canvasContext.moveTo(failedQuad.corners[0].x, failedQuad.corners[0].y);
+    canvasContext.lineTo(failedQuad.corners[1].x, failedQuad.corners[1].y);
+    canvasContext.lineTo(failedQuad.corners[2].x, failedQuad.corners[2].y);
+    canvasContext.lineTo(failedQuad.corners[3].x, failedQuad.corners[3].y);
+    canvasContext.closePath();
+    canvasContext.stroke();
+  });
+  canvasContext.setLineDash([]);
+  canvasContext.font = '14px Arial';
+  canvasContext.fillStyle = 'rgba(255, 200, 0, 0.95)';
+  canvasContext.textAlign = 'left';
+  canvasContext.fillText(`ID-unconfirmed quads: ${failedQuads.length}`, 8, 20);
+  canvasContext.restore();
+}

@@ -72,6 +72,10 @@ static int g_image_stride = 0;
 static uint8_t *g_image_buffer = NULL;
 
 static t_str_json g_detection_json = STR_JSON_INITIALIZER;
+static t_str_json g_failed_quads_json = STR_JSON_INITIALIZER;
+
+static const int DEFAULT_MAX_FAILED_QUADS = 64;
+#define FAILED_QUAD_JSON_BYTES 512
 
 static const double DEFAULT_TAG_SIZE_METERS = 0.15;
 static const int MIN_POSE_ALTERNATIVE_SOLUTION_JSON_BYTES = 100;
@@ -444,6 +448,8 @@ int atagjs_init()
     g_return_pose = 1;
     g_return_solutions = 0;
     g_max_detections = 0;
+    g_tag_detector->collect_failed_decodes = false;
+    g_tag_detector->max_failed_decodes = DEFAULT_MAX_FAILED_QUADS;
     reset_all_tag_size_tables_to_default();
 
     return 0;
@@ -477,6 +483,7 @@ int atagjs_destroy()
     g_active_family_bits_corrected = 1;
 
     str_json_destroy(&g_detection_json);
+    str_json_destroy(&g_failed_quads_json);
     return 0;
 }
 
@@ -609,6 +616,94 @@ int atagjs_set_all_tag_sizes(double size_meters)
         g_active_tag_family_descriptor->size_meters_by_id[tag_index] = size_meters;
     }
     return 0;
+}
+
+static t_str_json *empty_failed_quads_json(void)
+{
+    str_json_destroy(&g_failed_quads_json);
+    if (str_json_create(&g_failed_quads_json, 50) != 0) {
+        return &g_failed_quads_json;
+    }
+    str_json_printf(&g_failed_quads_json, "[ ]");
+    return &g_failed_quads_json;
+}
+
+static void format_failed_quad_json(char *failed_quad_fragment, const apriltag_failed_decode_t *failed_decode)
+{
+    snprintf(
+        failed_quad_fragment,
+        FAILED_QUAD_JSON_BYTES,
+        "{\"hamming\":%d, \"decision_margin\":%.2f, "
+        "\"corners\": [{\"x\":%.2f,\"y\":%.2f},{\"x\":%.2f,\"y\":%.2f},{\"x\":%.2f,\"y\":%.2f},{\"x\":%.2f,\"y\":%.2f}], "
+        "\"center\": {\"x\":%.2f,\"y\":%.2f} }",
+        failed_decode->hamming,
+        failed_decode->decision_margin,
+        failed_decode->p[0][0],
+        failed_decode->p[0][1],
+        failed_decode->p[1][0],
+        failed_decode->p[1][1],
+        failed_decode->p[2][0],
+        failed_decode->p[2][1],
+        failed_decode->p[3][0],
+        failed_decode->p[3][1],
+        failed_decode->c[0],
+        failed_decode->c[1]);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int atagjs_set_failed_quad_options(int enabled, int max_failed_quads)
+{
+    if (g_tag_detector == NULL) {
+        return -1;
+    }
+
+    g_tag_detector->collect_failed_decodes = enabled != 0;
+    g_tag_detector->max_failed_decodes = max_failed_quads;
+    return 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+t_str_json *atagjs_get_failed_quads()
+{
+    zarray_t *failed_decodes = NULL;
+    int visible_failed_quad_count = 0;
+    int written_failed_quad_count = 0;
+
+    if (g_tag_detector == NULL || !g_tag_detector->collect_failed_decodes) {
+        return empty_failed_quads_json();
+    }
+
+    failed_decodes = apriltag_detector_get_failed_decodes(g_tag_detector);
+    if (failed_decodes == NULL) {
+        return empty_failed_quads_json();
+    }
+
+    visible_failed_quad_count = zarray_size(failed_decodes);
+
+    if (visible_failed_quad_count <= 0) {
+        return empty_failed_quads_json();
+    }
+
+    str_json_destroy(&g_failed_quads_json);
+    if (str_json_create(&g_failed_quads_json, (size_t)visible_failed_quad_count * FAILED_QUAD_JSON_BYTES) != 0) {
+        return empty_failed_quads_json();
+    }
+
+    str_json_concat(&g_failed_quads_json, "[ ");
+    for (int failed_index = 0; failed_index < zarray_size(failed_decodes); failed_index++) {
+        apriltag_failed_decode_t *failed_decode = NULL;
+        char failed_quad_fragment[FAILED_QUAD_JSON_BYTES];
+
+        zarray_get_volatile(failed_decodes, failed_index, &failed_decode);
+        format_failed_quad_json(failed_quad_fragment, failed_decode);
+        if (written_failed_quad_count > 0) {
+            str_json_concat(&g_failed_quads_json, ", ");
+        }
+        str_json_concat(&g_failed_quads_json, failed_quad_fragment);
+        written_failed_quad_count++;
+    }
+    str_json_concat(&g_failed_quads_json, " ]");
+    return &g_failed_quads_json;
 }
 
 EMSCRIPTEN_KEEPALIVE

@@ -64,6 +64,14 @@ int main(void) {
             atagjs_test_group_teardown),
         cmocka_unit_test_setup_teardown(
             when_both_families_return_core_detection_fields, NULL, atagjs_test_group_teardown),
+        cmocka_unit_test_setup_teardown(
+            when_get_failed_quads_before_detect_returns_empty_array, NULL, atagjs_test_group_teardown),
+        cmocka_unit_test_setup_teardown(
+            when_failed_quad_collection_disabled_returns_empty_array, NULL, atagjs_test_group_teardown),
+        cmocka_unit_test_setup_teardown(
+            when_sharp_tag_is_not_reported_as_failed_quad, NULL, atagjs_test_group_teardown),
+        cmocka_unit_test_setup_teardown(
+            when_blurred_tag_decode_fails_returns_near_miss_failed_quad, NULL, atagjs_test_group_teardown),
     };
 
     const struct CMUnitTest str_json_tests[] = {

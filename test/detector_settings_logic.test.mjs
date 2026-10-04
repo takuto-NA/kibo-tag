@@ -6,9 +6,13 @@ import assert from 'node:assert/strict';
 import {
   ARUCO_4X4_100_BITS_CORRECTED,
   ARUCO_4X4_100_MINIMUM_DECISION_MARGIN,
+  DEFAULT_FAILED_QUAD_MIN_DECISION_MARGIN,
+  DEFAULT_SHOW_FAILED_QUADS,
   DEFAULT_TAG_FAMILY_NAME,
   bitsCorrectedFromRawValue,
+  detectorSettingsDefaults,
   filterDetectionsByDecisionMargin,
+  filterFailedQuads,
   recommendedControlsForFamily,
   tagSizeMetersFromRawValue,
 } from '../html/detector_settings_logic.mjs';
@@ -35,5 +39,20 @@ const filtered = filterDetectionsByDecisionMargin(
   ],
   50);
 assert.deepEqual(filtered.map((detection) => detection.id), [2, 3]);
+
+const defaults = detectorSettingsDefaults();
+assert.equal(defaults.showFailedQuads, DEFAULT_SHOW_FAILED_QUADS);
+assert.equal(defaults.showFailedQuads, false);
+assert.equal(defaults.failedQuadMinDecisionMargin, DEFAULT_FAILED_QUAD_MIN_DECISION_MARGIN);
+
+const failedQuadSamples = [
+  { decision_margin: -1, corners: [1] },
+  { decision_margin: -5, corners: [2] },
+  { decision_margin: -40, corners: [3] },
+];
+assert.deepEqual(
+  filterFailedQuads(failedQuadSamples, false, -20).map((failedQuad) => failedQuad.decision_margin),
+  [-5]);
+assert.equal(filterFailedQuads(failedQuadSamples, true, -20).length, 3);
 
 console.log('detector_settings_logic.test.mjs: PASS');
