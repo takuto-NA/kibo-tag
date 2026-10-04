@@ -31,6 +31,11 @@ export const DETECTOR_FAMILY_SETTINGS = {
 export const BROWSER_DEMO_MAX_DETECTIONS = 32;
 export const BROWSER_DEMO_RETURN_POSE = 1;
 export const BROWSER_DEMO_RETURN_SOLUTIONS = 0;
+export const DEFAULT_SHOW_FAILED_QUADS = false;
+export const DEFAULT_INCLUDE_ALL_FAILED_QUADS = false;
+export const DEFAULT_FAILED_QUAD_MIN_DECISION_MARGIN = -20;
+export const DEFAULT_MAX_FAILED_QUADS = 64;
+export const FAILED_DECODE_BORDER_REJECT_MARGIN = -1;
 
 export function detectorFamilySettingsFor(familyName) {
   return DETECTOR_FAMILY_SETTINGS[familyName] || DETECTOR_FAMILY_SETTINGS[DEFAULT_TAG_FAMILY_NAME];
@@ -43,6 +48,10 @@ export function detectorSettingsDefaults() {
     bitsCorrected: defaultFamilySettings.bitsCorrected,
     tagSizeMeters: DEFAULT_TAG_SIZE_METERS,
     minimumDecisionMargin: defaultFamilySettings.minimumDecisionMargin,
+    showFailedQuads: DEFAULT_SHOW_FAILED_QUADS,
+    includeAllFailedQuads: DEFAULT_INCLUDE_ALL_FAILED_QUADS,
+    failedQuadMinDecisionMargin: DEFAULT_FAILED_QUAD_MIN_DECISION_MARGIN,
+    maxFailedQuads: DEFAULT_MAX_FAILED_QUADS,
   };
 }
 
@@ -78,6 +87,20 @@ export function tagSizeMetersFromRawValue(rawValue, defaultValue) {
     return defaultValue;
   }
   return parsedTagSizeMeters;
+}
+
+export function filterFailedQuads(failedQuads, includeAllFailedQuads, minDecisionMargin) {
+  if (!Array.isArray(failedQuads)) {
+    return [];
+  }
+  if (includeAllFailedQuads) {
+    return failedQuads;
+  }
+  return failedQuads.filter((failedQuad) => (
+    typeof failedQuad.decision_margin === 'number'
+    && failedQuad.decision_margin !== FAILED_DECODE_BORDER_REJECT_MARGIN
+    && failedQuad.decision_margin >= minDecisionMargin
+  ));
 }
 
 export function minimumDecisionMarginFromRawValue(rawValue, defaultValue) {

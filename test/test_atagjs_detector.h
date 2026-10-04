@@ -26,5 +26,9 @@ void when_init_default_max_detections_does_not_truncate_multiple_synthetic_tags(
 void when_set_all_tag_sizes_updates_endpoint_ids_for_active_family_only(void **state);
 void when_set_all_tag_sizes_called_before_init_returns_error(void **state);
 void when_both_families_return_core_detection_fields(void **state);
+void when_get_failed_quads_before_detect_returns_empty_array(void **state);
+void when_failed_quad_collection_disabled_returns_empty_array(void **state);
+void when_sharp_tag_is_not_reported_as_failed_quad(void **state);
+void when_blurred_tag_decode_fails_returns_near_miss_failed_quad(void **state);
 
 #endif

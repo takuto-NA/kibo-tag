@@ -2,7 +2,11 @@
  * Responsibility: convert a video frame to grayscale and run WASM detection with margin filtering.
  */
 
-import { filterDetectionsByDecisionMargin } from './detector_settings_logic.mjs';
+import {
+  DEFAULT_FAILED_QUAD_MIN_DECISION_MARGIN,
+  filterDetectionsByDecisionMargin,
+  filterFailedQuads,
+} from './detector_settings_logic.mjs';
 
 export function rgbaPixelsToGrayscale(imageDataPixels, pixelCount) {
   // Detector-only luma buffer: do not mutate the source RGBA (canvas keeps color).
@@ -19,8 +23,18 @@ export async function detectTagsInGrayscaleFrame(
   grayscalePixels,
   frameWidth,
   frameHeight,
-  minimumDecisionMargin)
+  minimumDecisionMargin,
+  failedQuadFilter)
 {
-  const rawDetections = await apriltagDetector.detect(grayscalePixels, frameWidth, frameHeight);
-  return filterDetectionsByDecisionMargin(rawDetections, minimumDecisionMargin);
+  const rawResult = await apriltagDetector.detect(grayscalePixels, frameWidth, frameHeight);
+  const rawDetections = Array.isArray(rawResult) ? rawResult : rawResult.detections;
+  const failedQuads = Array.isArray(rawResult) ? [] : rawResult.failedQuads;
+  const includeAllFailedQuads = failedQuadFilter ? failedQuadFilter.includeAllFailedQuads : false;
+  const failedQuadMinDecisionMargin = failedQuadFilter
+    ? failedQuadFilter.minDecisionMargin
+    : DEFAULT_FAILED_QUAD_MIN_DECISION_MARGIN;
+  return {
+    detections: filterDetectionsByDecisionMargin(rawDetections, minimumDecisionMargin),
+    failedQuads: filterFailedQuads(failedQuads, includeAllFailedQuads, failedQuadMinDecisionMargin),
+  };
 }

@@ -91,4 +91,24 @@ int atagjs_set_all_tag_sizes(double size_meters);
  */
 t_str_json *atagjs_detect();
 
+/**
+ * @brief Collect quads whose payload did not decode on the next atagjs_detect() calls
+ *
+ * Display filtering (near-miss vs all) belongs to the caller. This only turns collection
+ * on and caps how many highest-margin failures are retained.
+ *
+ * @param enabled 0=off, nonzero=on
+ * @param max_failed_quads keep this many highest-margin failures (0=unlimited)
+ *
+ * @return 0=success; -1 if the detector is not initialized
+ */
+int atagjs_set_failed_quad_options(int enabled, int max_failed_quads);
+
+/**
+ * @brief JSON array of failed quads from the most recent atagjs_detect()
+ *
+ * Empty array when collection is off, before the first detect, or when no quad failed.
+ */
+t_str_json *atagjs_get_failed_quads();
+
 #endif

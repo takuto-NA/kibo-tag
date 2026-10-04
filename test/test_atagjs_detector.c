@@ -33,6 +33,11 @@ static const int TEST_STRESS_PROFILE_RETURN_SOLUTIONS = 1;
 static const char EXPECTED_ERROR_NOT_INITIALIZED[] = "Detector not initialized";
 static const char EXPECTED_EMPTY_DETECTIONS_JSON[] = "[ ]";
 static const char EXPECTED_ARUCO_FAMILY_NAME[] = "tagAruco4x4_100";
+static const int TEST_FAILED_QUAD_MAX_COUNT = 64;
+static const int TEST_TAG_SCALE_FOR_BLUR = 6;
+
+static int g_test_canvas_width = 0;
+static int g_test_canvas_height = 0;
 
 int atagjs_test_group_teardown(void **state)
 {
@@ -64,6 +69,8 @@ static int render_tag_into_detector_buffer(apriltag_family_t *tag_family, uint32
 
     int canvas_width = tag_image->width + (2 * TEST_TAG_RENDER_BORDER_PIXELS);
     int canvas_height = tag_image->height + (2 * TEST_TAG_RENDER_BORDER_PIXELS);
+    g_test_canvas_width = canvas_width;
+    g_test_canvas_height = canvas_height;
     uint8_t *image_buffer = atagjs_set_img_buffer(canvas_width, canvas_height, canvas_width);
 
     assert_non_null(image_buffer);
@@ -699,4 +706,182 @@ void when_both_families_return_core_detection_fields(void **state)
     assert_detection_json_has_core_detection_fields(aruco_detection_json);
     assert_detection_json_contains_tag_id(aruco_detection_json, TEST_ARUCO_TAG_ID);
     assert_non_null(strstr(aruco_detection_json->str, EXPECTED_ARUCO_FAMILY_NAME));
+}
+
+static int count_json_corners_arrays(const char *json_text)
+{
+    int corners_count = 0;
+    const char *cursor = json_text;
+
+    if (cursor == NULL) {
+        return 0;
+    }
+
+    while ((cursor = strstr(cursor, "\"corners\"")) != NULL) {
+        corners_count++;
+        cursor += 9;
+    }
+    return corners_count;
+}
+
+static uint8_t *current_detector_image_buffer(void)
+{
+    return atagjs_set_img_buffer(g_test_canvas_width, g_test_canvas_height, g_test_canvas_width);
+}
+
+static void scale_up_detector_image(int scale)
+{
+    int source_width = g_test_canvas_width;
+    int source_height = g_test_canvas_height;
+    uint8_t *source_buffer = current_detector_image_buffer();
+    uint8_t *source_copy = NULL;
+    int destination_width = 0;
+    int destination_height = 0;
+    uint8_t *destination_buffer = NULL;
+
+    assert_non_null(source_buffer);
+    source_copy = malloc((size_t)source_width * (size_t)source_height);
+    assert_non_null(source_copy);
+    memcpy(source_copy, source_buffer, (size_t)source_width * (size_t)source_height);
+
+    destination_width = source_width * scale;
+    destination_height = source_height * scale;
+    destination_buffer = atagjs_set_img_buffer(destination_width, destination_height, destination_width);
+    assert_non_null(destination_buffer);
+
+    for (int row = 0; row < destination_height; row++) {
+        for (int column = 0; column < destination_width; column++) {
+            destination_buffer[(row * destination_width) + column] =
+                source_copy[((row / scale) * source_width) + (column / scale)];
+        }
+    }
+
+    free(source_copy);
+    g_test_canvas_width = destination_width;
+    g_test_canvas_height = destination_height;
+}
+
+static void apply_horizontal_box_blur(int radius)
+{
+    int width = g_test_canvas_width;
+    int height = g_test_canvas_height;
+    uint8_t *image_buffer = current_detector_image_buffer();
+    uint8_t *source_copy = NULL;
+
+    assert_true(radius > 0);
+    assert_non_null(image_buffer);
+    source_copy = malloc((size_t)width * (size_t)height);
+    assert_non_null(source_copy);
+    memcpy(source_copy, image_buffer, (size_t)width * (size_t)height);
+
+    for (int row = 0; row < height; row++) {
+        for (int column = 0; column < width; column++) {
+            int sample_sum = 0;
+            int sample_count = 0;
+            for (int offset = -radius; offset <= radius; offset++) {
+                int sample_column = column + offset;
+                if (sample_column < 0 || sample_column >= width) {
+                    continue;
+                }
+                sample_sum += source_copy[(row * width) + sample_column];
+                sample_count++;
+            }
+            image_buffer[(row * width) + column] = (uint8_t)(sample_sum / sample_count);
+        }
+    }
+
+    free(source_copy);
+}
+
+static void render_scaled_tag36h11(void)
+{
+    apriltag_family_t *tag_family = tag36h11_create();
+    assert_non_null(tag_family);
+    render_tag_into_detector_buffer(tag_family, (uint32_t)TEST_TAG36H11_TAG_ID);
+    tag36h11_destroy(tag_family);
+    scale_up_detector_image(TEST_TAG_SCALE_FOR_BLUR);
+}
+
+static void enable_failed_quad_collection(void)
+{
+    assert_int_equal(atagjs_set_failed_quad_options(1, TEST_FAILED_QUAD_MAX_COUNT), 0);
+}
+
+void when_get_failed_quads_before_detect_returns_empty_array(void **state)
+{
+    t_str_json *failed_quads_json = NULL;
+    (void)state;
+
+    assert_int_equal(atagjs_init(), 0);
+    assert_int_equal(atagjs_set_failed_quad_options(1, TEST_FAILED_QUAD_MAX_COUNT), 0);
+
+    failed_quads_json = atagjs_get_failed_quads();
+    assert_non_null(failed_quads_json);
+    assert_string_equal(failed_quads_json->str, EXPECTED_EMPTY_DETECTIONS_JSON);
+}
+
+void when_failed_quad_collection_disabled_returns_empty_array(void **state)
+{
+    t_str_json *failed_quads_json = NULL;
+    (void)state;
+
+    assert_int_equal(atagjs_init(), 0);
+    configure_detector_for_synthetic_tag_images();
+    assert_int_equal(atagjs_set_failed_quad_options(0, TEST_FAILED_QUAD_MAX_COUNT), 0);
+    render_scaled_tag36h11();
+    apply_horizontal_box_blur(8);
+
+    (void)atagjs_detect();
+    failed_quads_json = atagjs_get_failed_quads();
+    assert_non_null(failed_quads_json);
+    assert_string_equal(failed_quads_json->str, EXPECTED_EMPTY_DETECTIONS_JSON);
+}
+
+void when_sharp_tag_is_not_reported_as_failed_quad(void **state)
+{
+    t_str_json *detection_json = NULL;
+    t_str_json *failed_quads_json = NULL;
+    (void)state;
+
+    assert_int_equal(atagjs_init(), 0);
+    configure_detector_for_synthetic_tag_images();
+    enable_failed_quad_collection();
+    render_scaled_tag36h11();
+
+    detection_json = atagjs_detect();
+    failed_quads_json = atagjs_get_failed_quads();
+    assert_detection_json_contains_tag_id(detection_json, TEST_TAG36H11_TAG_ID);
+    assert_string_equal(failed_quads_json->str, EXPECTED_EMPTY_DETECTIONS_JSON);
+}
+
+void when_blurred_tag_decode_fails_returns_near_miss_failed_quad(void **state)
+{
+    static const int blur_radii[] = {2, 4, 6, 8, 12, 16};
+    int found_decode_failure_with_quad = 0;
+    (void)state;
+
+    assert_int_equal(atagjs_init(), 0);
+    configure_detector_for_synthetic_tag_images();
+    enable_failed_quad_collection();
+
+    for (int radius_index = 0; radius_index < (int)(sizeof(blur_radii) / sizeof(blur_radii[0])); radius_index++) {
+        t_str_json *detection_json = NULL;
+        t_str_json *failed_quads_json = NULL;
+        char expected_id_fragment[32];
+
+        render_scaled_tag36h11();
+        apply_horizontal_box_blur(blur_radii[radius_index]);
+        detection_json = atagjs_detect();
+        failed_quads_json = atagjs_get_failed_quads();
+        snprintf(expected_id_fragment, sizeof(expected_id_fragment), "\"id\":%d", TEST_TAG36H11_TAG_ID);
+
+        if (strstr(detection_json->str, expected_id_fragment) == NULL
+            && count_json_corners_arrays(failed_quads_json->str) > 0) {
+            found_decode_failure_with_quad = 1;
+            assert_null(strstr(failed_quads_json->str, "\"id\":"));
+            break;
+        }
+    }
+
+    assert_true(found_decode_failure_with_quad);
 }

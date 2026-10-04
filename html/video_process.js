@@ -13,7 +13,7 @@ import {
   detectTagsInGrayscaleFrame,
   rgbaPixelsToGrayscale,
 } from './frame_pipeline.js';
-import { drawDetectionOverlays } from './detection_overlay.js';
+import { drawDetectionOverlays, drawFailedQuadOverlays } from './detection_overlay.js';
 import {
   loadSavedDetectionIntoPage,
   saveNextDetectionToLocalStorage,
@@ -24,6 +24,7 @@ const SCHEDULING_MODE_DECOUPLED = 'decoupled';
 const SCHEDULING_MODE_GATED = 'gated';
 
 var detections = [];
+var failedQuads = [];
 var imgSaveRequested = 0;
 var videoProcessingActive = true;
 const pipelineMetrics = installPipelineMetricsOnWindow(window);
@@ -130,6 +131,7 @@ async function init() {
   registerCameraInfoChangeListener();
   await initializeDetectorSettingsForDemo(() => {
     detections = [];
+    failedQuads = [];
   });
   registerSourceFramePresentationObserver();
   window.requestAnimationFrame(process_frame);
@@ -140,12 +142,17 @@ async function runDetectionForFrame(grayscalePixels, frameWidth, frameHeight, sc
   pipelineMetrics.markFrameSubmitted();
   const detectStartedAtMilliseconds = performance.now();
   try {
-    const nextDetections = await detectTagsInGrayscaleFrame(
+    const detectionResult = await detectTagsInGrayscaleFrame(
       apriltag,
       grayscalePixels,
       frameWidth,
       frameHeight,
-      currentSettings.minimumDecisionMargin);
+      currentSettings.minimumDecisionMargin,
+      {
+        includeAllFailedQuads: currentSettings.includeAllFailedQuads,
+        minDecisionMargin: currentSettings.failedQuadMinDecisionMargin,
+      });
+    const nextDetections = detectionResult.detections;
     const detectWallMilliseconds = performance.now() - detectStartedAtMilliseconds;
     pipelineMetrics.markStageDuration('detectWallMilliseconds', detectWallMilliseconds);
     pipelineMetrics.markDetectionCompleted({
@@ -154,8 +161,10 @@ async function runDetectionForFrame(grayscalePixels, frameWidth, frameHeight, sc
       nowMilliseconds: performance.now(),
     });
     detections = nextDetections;
+    failedQuads = currentSettings.showFailedQuads ? detectionResult.failedQuads : [];
     window.__kiboLastDetectionIds = detections.map((detection) => detection.id);
     window.__kiboLastDetections = detections;
+    window.__kiboLastFailedQuads = failedQuads;
 
     if (imgSaveRequested && detections.length > 0) {
       const ctx = canvas.getContext('2d');
@@ -167,6 +176,8 @@ async function runDetectionForFrame(grayscalePixels, frameWidth, frameHeight, sc
   } catch (detectionError) {
     console.log(detectionError);
     detections = [];
+    failedQuads = [];
+    window.__kiboLastFailedQuads = failedQuads;
     pipelineMetrics.markFrameDropped();
   } finally {
     detectInFlight = false;
@@ -179,6 +190,7 @@ async function runDetectionForFrame(grayscalePixels, frameWidth, frameHeight, sc
 function presentOverlayOnly(ctx) {
   const overlayStartedAtMilliseconds = performance.now();
   drawDetectionOverlays(ctx, detections);
+  drawFailedQuadOverlays(ctx, failedQuads);
   pipelineMetrics.markStageDuration(
     'overlayMilliseconds',
     performance.now() - overlayStartedAtMilliseconds);

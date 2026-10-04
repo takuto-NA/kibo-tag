@@ -22,7 +22,9 @@ class Apriltag {
           refine_edges: 1,
           max_detections: 0,
           return_pose: 1,
-          return_solutions: 0
+          return_solutions: 0,
+          failed_quads_enabled: 0,
+          max_failed_quads: 64
         };
 
         let _this = this;
@@ -48,6 +50,11 @@ class Apriltag {
         this._atagjs_set_tag_size = Module.cwrap('atagjs_set_tag_size', 'number', ['number', 'number']);
         this._atagjs_set_all_tag_sizes = Module.cwrap('atagjs_set_all_tag_sizes', 'number', ['number']);
         this._detect = Module.cwrap('atagjs_detect', 'number', []);
+        this._set_failed_quad_options = Module.cwrap(
+            'atagjs_set_failed_quad_options',
+            'number',
+            ['number', 'number']);
+        this._get_failed_quads = Module.cwrap('atagjs_get_failed_quads', 'number', []);
 
         const init_result = this._init();
         if (init_result !== 0) {
@@ -108,7 +115,28 @@ class Apriltag {
             throw new Error('Apriltag detect returned an unexpected response.');
         }
 
-        return detections;
+        if (!this._opt.failed_quads_enabled) {
+            return detections;
+        }
+
+        const failed_quads_pointer = this._get_failed_quads();
+        const failed_quads_json = this._detectionJsonStringFromPointer(failed_quads_pointer);
+        const failedQuads = JSON.parse(failed_quads_json);
+        if (!Array.isArray(failedQuads)) {
+            throw new Error('Apriltag failed quads returned an unexpected response.');
+        }
+        return { detections, failedQuads };
+    }
+
+    set_failed_quad_options(enabled, maxFailedQuads) {
+        this._opt.failed_quads_enabled = enabled ? 1 : 0;
+        this._opt.max_failed_quads = maxFailedQuads;
+        const set_failed_quad_options_result = this._set_failed_quad_options(
+            this._opt.failed_quads_enabled,
+            this._opt.max_failed_quads);
+        if (set_failed_quad_options_result !== 0) {
+            throw new Error('Apriltag set_failed_quad_options failed.');
+        }
     }
 
     set_tag_family(familyName, bitsCorrected = 1) {

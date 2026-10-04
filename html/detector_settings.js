@@ -12,6 +12,7 @@ import {
   detectorFamilySettingsFor,
   detectorSettingsDefaults,
   minimumDecisionMarginFromRawValue,
+  numberFromRawValue,
   recommendedControlsForFamily,
   tagSizeMetersFromRawValue,
 } from './detector_settings_logic.mjs';
@@ -20,6 +21,9 @@ const DETECTOR_FAMILY_SELECT_ID = 'detector_family';
 const DETECTOR_BITS_CORRECTED_SELECT_ID = 'detector_bits_corrected';
 const DETECTOR_TAG_SIZE_INPUT_ID = 'detector_tag_size_meters';
 const DETECTOR_MIN_DECISION_MARGIN_INPUT_ID = 'detector_min_decision_margin';
+const DETECTOR_SHOW_FAILED_QUADS_ID = 'show_failed_quads';
+const DETECTOR_INCLUDE_ALL_FAILED_QUADS_ID = 'include_all_failed_quads';
+const DETECTOR_FAILED_QUAD_MIN_MARGIN_ID = 'failed_quad_min_decision_margin';
 const DETECTOR_STATUS_ID = 'detector_status';
 
 let currentDetectorSettings = detectorSettingsDefaults();
@@ -48,6 +52,9 @@ function readDetectorSettingsFromPage() {
   const bitsCorrectedSelect = document.getElementById(DETECTOR_BITS_CORRECTED_SELECT_ID);
   const tagSizeInput = document.getElementById(DETECTOR_TAG_SIZE_INPUT_ID);
   const minimumDecisionMarginInput = document.getElementById(DETECTOR_MIN_DECISION_MARGIN_INPUT_ID);
+  const showFailedQuadsInput = document.getElementById(DETECTOR_SHOW_FAILED_QUADS_ID);
+  const includeAllFailedQuadsInput = document.getElementById(DETECTOR_INCLUDE_ALL_FAILED_QUADS_ID);
+  const failedQuadMinMarginInput = document.getElementById(DETECTOR_FAILED_QUAD_MIN_MARGIN_ID);
 
   if (familySelect !== null && familySelect.value !== '') {
     const familySettings = detectorFamilySettingsFor(familySelect.value);
@@ -65,6 +72,15 @@ function readDetectorSettingsFromPage() {
   settings.minimumDecisionMargin = minimumDecisionMarginFromRawValue(
     minimumDecisionMarginInput !== null ? minimumDecisionMarginInput.value : null,
     settings.minimumDecisionMargin);
+  settings.showFailedQuads = showFailedQuadsInput !== null
+    ? showFailedQuadsInput.checked
+    : settings.showFailedQuads;
+  settings.includeAllFailedQuads = includeAllFailedQuadsInput !== null
+    ? includeAllFailedQuadsInput.checked
+    : settings.includeAllFailedQuads;
+  settings.failedQuadMinDecisionMargin = numberFromRawValue(
+    failedQuadMinMarginInput !== null ? failedQuadMinMarginInput.value : null,
+    settings.failedQuadMinDecisionMargin);
 
   return settings;
 }
@@ -100,8 +116,14 @@ async function applyDetectorSettingsToApriltagDetector() {
   currentDetectorSettings = settings;
   await window.apriltag.set_tag_family(settings.familyName, settings.bitsCorrected);
   await window.apriltag.set_all_tag_sizes(settings.tagSizeMeters);
+  await window.apriltag.set_failed_quad_options(
+    settings.showFailedQuads,
+    settings.maxFailedQuads);
+  const failedQuadMode = settings.showFailedQuads
+    ? (settings.includeAllFailedQuads ? 'all ID-unconfirmed quads' : 'near-miss ID-unconfirmed quads')
+    : 'ID-unconfirmed quads hidden';
   updateDetectorStatus(
-    `Detecting ${settings.familyName} with ${settings.bitsCorrected} corrected bit(s); tag size ${settings.tagSizeMeters} m; minimum decision margin ${settings.minimumDecisionMargin}.`);
+    `Detecting ${settings.familyName} with ${settings.bitsCorrected} corrected bit(s); tag size ${settings.tagSizeMeters} m; minimum decision margin ${settings.minimumDecisionMargin}; ${failedQuadMode}.`);
 }
 
 export function queueDetectorSettingsApply(onSettingsApplied) {
@@ -130,6 +152,9 @@ export function registerDetectorSettingsChangeListener(onSettingsApplied) {
     DETECTOR_BITS_CORRECTED_SELECT_ID,
     DETECTOR_TAG_SIZE_INPUT_ID,
     DETECTOR_MIN_DECISION_MARGIN_INPUT_ID,
+    DETECTOR_SHOW_FAILED_QUADS_ID,
+    DETECTOR_INCLUDE_ALL_FAILED_QUADS_ID,
+    DETECTOR_FAILED_QUAD_MIN_MARGIN_ID,
   ];
 
   if (familySelect !== null) {
